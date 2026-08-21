@@ -39,10 +39,12 @@ export const StaffReservationList = () => {
         setLoading(true)
         setError(null)
 
-        // 店舗と学校のリストを取得
+        // 店舗・学校のリストと予約一覧は互いに依存しないため並列に取得する。
+        // ローディング表示は fetchData 側でまとめて管理する。
         const [storesResult, schoolsResult] = await Promise.all([
             getStores(),
             getSchools(),
+            fetchReservations({ manageLoading: false }),
         ])
 
         if (storesResult.success && storesResult.data) {
@@ -52,12 +54,11 @@ export const StaffReservationList = () => {
             setSchools(schoolsResult.data)
         }
 
-        // 予約一覧を取得
-        await fetchReservations()
+        setLoading(false)
     }
 
-    const fetchReservations = async () => {
-        setLoading(true)
+    const fetchReservations = async ({ manageLoading = true } = {}) => {
+        if (manageLoading) setLoading(true)
 
         const params: Record<string, string | number> = {}
         if (storeFilter !== ALL_FILTER) params.store_id = parseInt(storeFilter)
@@ -67,7 +68,7 @@ export const StaffReservationList = () => {
         if (dateToFilter) params.date_to = dateToFilter
 
         const result = await getReservationsForStaff(params)
-        setLoading(false)
+        if (manageLoading) setLoading(false)
 
         if (result.success && result.data) {
             setReservations(result.data)

@@ -3,11 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "next lint"
+    "dev": "bun --bun next dev",
+    "build": "bun --bun next build",
+    "start": "bun --bun next start",
+    "lint": "bun --bun next lint"
   },
+  "_comment_trustedDependencies": "Bun は既定で postinstall をブロックする。Tailwind v4 のネイティブバインディングは install スクリプトが必要なため明示的に許可する。unrs-resolver は optionalDependencies でバイナリが解決されるため許可不要（Windows ARM では postinstall が失敗する）。",
+  "trustedDependencies": [
+    "@tailwindcss/oxide"
+  ],
   "dependencies": {
     "@aws-sdk/client-s3": "^3.848.0",
     "@aws-sdk/s3-request-presigner": "^3.848.0",

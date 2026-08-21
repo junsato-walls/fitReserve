@@ -61,7 +61,12 @@ export const StaffScheduleList = () => {
         setLoading(true)
         setError(null)
 
-        const [storesResult] = await Promise.all([getStores()])
+        // 店舗リストとスケジュール一覧は互いに依存しないため並列に取得する。
+        // ローディング表示は fetchData 側でまとめて管理する。
+        const [storesResult] = await Promise.all([
+            getStores(),
+            fetchSchedules({ manageLoading: false }),
+        ])
 
         if (storesResult.success && storesResult.data) {
             setStores(storesResult.data)
@@ -72,11 +77,11 @@ export const StaffScheduleList = () => {
             setStoreMap(map)
         }
 
-        await fetchSchedules()
+        setLoading(false)
     }
 
-    const fetchSchedules = async () => {
-        setLoading(true)
+    const fetchSchedules = async ({ manageLoading = true } = {}) => {
+        if (manageLoading) setLoading(true)
 
         const params: Record<string, string | number | boolean> = {}
         if (storeFilter !== ALL_FILTER) params.store_id = parseInt(storeFilter)
@@ -85,7 +90,7 @@ export const StaffScheduleList = () => {
         if (availableFilter !== ALL_FILTER) params.is_available = availableFilter === "true"
 
         const result = await getSchedules(params)
-        setLoading(false)
+        if (manageLoading) setLoading(false)
 
         if (result.success && result.data) {
             setSchedules(result.data)

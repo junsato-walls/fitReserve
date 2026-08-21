@@ -38,26 +38,21 @@ export const StaffDashboard = () => {
         weekLater.setDate(weekLater.getDate() + 7)
         const weekLaterStr = formatDateForApi(weekLater)
 
-        // 今日の予約
-        const todayResult = await getReservationsForStaff({
-            date_from: todayStr,
-            date_to: todayStr,
-        })
-
-        // 今週の予約
-        const weekResult = await getReservationsForStaff({
-            date_from: todayStr,
-            date_to: weekLaterStr,
-        })
-
-        // 最近の予約（全体）
-        const recentResult = await getReservationsForStaff({ limit: 5 })
-
-        // 未確認の予約
-        const pendingResult = await getReservationsForStaff({ status: "pending" })
-
-        // 確定済みの予約
-        const confirmedResult = await getReservationsForStaff({ status: "confirmed" })
+        // 5件の取得は互いに依存しないため並列に実行する。
+        // 直列にすると Server Action の往復コストがそのまま5倍積み上がる。
+        const [
+            todayResult,      // 今日の予約
+            weekResult,       // 今週の予約
+            recentResult,     // 最近の予約（全体）
+            pendingResult,    // 未確認の予約
+            confirmedResult,  // 確定済みの予約
+        ] = await Promise.all([
+            getReservationsForStaff({ date_from: todayStr, date_to: todayStr }),
+            getReservationsForStaff({ date_from: todayStr, date_to: weekLaterStr }),
+            getReservationsForStaff({ limit: 5 }),
+            getReservationsForStaff({ status: "pending" }),
+            getReservationsForStaff({ status: "confirmed" }),
+        ])
 
         setLoading(false)
 
