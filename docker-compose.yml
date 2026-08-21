@@ -1,0 +1,96 @@
+version: "3.8"
+
+services:
+  # PostgreSQL
+  db:
+    container_name: "fitreserve_db"
+    image: postgres:16-alpine
+    restart: always
+    tty: true
+    environment:
+      POSTGRES_DB: fitreserve_db
+      POSTGRES_USER: fitreserve_user
+      POSTGRES_PASSWORD: password
+      TZ: Asia/Tokyo
+      PGTZ: Asia/Tokyo
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./docker/postgres/initdb.d:/docker-entrypoint-initdb.d # 定義どおりにテーブル作成
+      - postgres_data:/var/lib/postgresql/data # データ永続化
+    networks:
+      - local-net
+
+  api:
+    # db起動後に立ち上げる
+    depends_on:
+      - db
+      - minio
+    container_name: "fitreserve_api"
+    environment:
+      # Database (PostgreSQL)
+      DB_USER: "fitreserve_user"
+      DB_PASSWORD: "password"
+      DB_HOST: "db"
+      DB_PORT: "5432"
+      DB_NAME: "fitreserve_db"
+      # MinIO
+      MINIO_ENDPOINT: "http://minio:9000"
+      AWS_ACCESS_KEY_ID: "minioadmin"
+      AWS_SECRET_ACCESS_KEY: "minioadmin"
+      # JWT
+      SECRET_KEY: "k4zDCx4K2d7ZnQ2qxhC4JTsRbD8sP_KaG9z6etE5rAMh6MfQw7Gx7wm"
+    # path配下のDockerfile読み込み
+    build: ./docker/api
+    ports:
+      - 8000:8000
+    volumes:
+      - ./api:/usr/src/server
+    tty: true
+    networks:
+      - local-net
+    # environment:
+    # - SECRET_KEY=k4z$DCx4K2d7ZnQ2q#xhC4JTsRbD8sP*KaG%9^z6e#tE5rA@Mh$6MfQw7Gx7w!m
+
+    # Next
+    # front:
+    #   container_name: "fitreserve_frontend"
+    #   build:
+    #     context: .
+    #     dockerfile: ./docker/front/Dockerfile
+    #   volumes:
+    #     # - ./app:/usr/src/app
+    #     - /usr/src/app/node_modules # コンテナ内node_modulesを優先する
+    #   ports:
+    #     - 3000:3000
+    #   tty: true
+    #   networks:
+    #     - local-net
+    #   environment:
+    #     # Windows の NEXT_PUBLIC_API_URL をそのままコンテナに渡す
+    #     - NEXT_PUBLIC_API_URL=test
+  minio:
+    image: minio/minio:latest
+    container_name: "fitreserve_minio"
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - local-net
+
+# コンテナ間で通信を行うためのネットワークブリッジ
+networks:
+  local-net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
+  minio_data:
+    driver: local

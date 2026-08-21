@@ -1,0 +1,14 @@
+{
+  "name": "my-python-app",
+  "context": "..",
+  "dockerFile": "../Dockerfile",
+  "settings": {
+    "python.pythonPath": "/usr/local/bin/python"
+  },
+  "remoteUser": "root",
+  "extensions": [
+    "ms-python.python",
+    "ms-python.vscode-pylance",
+    "ms-azuretools.vscode-docker"
+  ]
+}

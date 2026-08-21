@@ -1,0 +1,110 @@
+# -------------------------
+# General
+# -------------------------
+*.log
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+.DS_Store
+*.pem
+.env
+.env.*.local
+*.tsbuildinfo
+
+# -------------------------
+# Python (FastAPI / api/)
+# -------------------------
+api/__pycache__/
+api/.pytest_cache/
+api/.mypy_cache/
+api/instance/
+api/.env
+api/.venv/
+api/venv/
+api/.vscode/
+api/.coverage
+
+# -------------------------
+# Node.js / Next.js (app/)
+# -------------------------
+app/node_modules/
+app/.next/
+app/out/
+app/.env*
+app/.eslintcache
+
+# -------------------------
+# Docker / Infrastructure
+# -------------------------
+docker/*.log
+docker/*.pid
+docker/.env
+docker/.cache/
+docker/tmp/
+docker-compose.override.yml
+
+# -------------------------
+# Vercel / Deploy / Build
+# -------------------------
+.vercel/
+.build/
+coverage/
+out/
+build/
+
+# -------------------------
+# VSCode settings (optional)
+# -------------------------
+.vscode/
+# dependencies（依存関係フォルダ/ファイル）
+**/node_modules/
+.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# テスト関連
+coverage/
+
+# Next.js（ビルド生成物）
+.next/
+out/
+
+# production
+build/
+
+# 雑多なゴミファイル
+.DS_Store
+*.pem
+
+# debug log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# .env（環境変数ファイル。万一の漏洩防止のため基本は除外推奨）
+.env*
+!.env.example   # 例として残したい場合
+
+# Vercel用（デプロイ設定など）
+.vercel/
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# その他、よくある追加例
+*.swp
+*.swo
+.idea/
+.vscode/
+Thumbs.db
+*.
+
+*memo*
+*data
