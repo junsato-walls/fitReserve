@@ -1,6 +1,6 @@
 "use client"
 
-import Button from "@/components/base/buttons/Button"
+import { Button } from "@/components/base/buttons/Button";
 import { ArrowLeft, Home, Search } from "lucide-react"
 import Link from "next/link"
 

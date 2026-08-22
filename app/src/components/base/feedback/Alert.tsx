@@ -25,7 +25,7 @@ export interface AlertProps {
     role?: string;
 }
 
-const Alert = forwardRef<HTMLDivElement, AlertProps>(({
+export const Alert = forwardRef<HTMLDivElement, AlertProps>(({
     type = 'info',
     title,
     message,
@@ -56,7 +56,7 @@ const Alert = forwardRef<HTMLDivElement, AlertProps>(({
         const styles = {
             info: {
                 soft: 'text-blue-800 bg-blue-50 dark:bg-gray-800 dark:text-blue-400',
-                filled: 'text-white bg-blue-600',
+                filled: 'text-white bg-blue-600 dark:bg-blue-600',
                 outlined: 'text-blue-800 border border-blue-300 bg-blue-50 dark:bg-gray-800 dark:text-blue-400 dark:border-blue-800',
                 icon: 'text-blue-800 dark:text-blue-400',
                 defaultIcon: (
@@ -67,7 +67,7 @@ const Alert = forwardRef<HTMLDivElement, AlertProps>(({
             },
             success: {
                 soft: 'text-green-800 bg-green-50 dark:bg-gray-800 dark:text-green-400',
-                filled: 'text-white bg-green-600',
+                filled: 'text-white bg-green-600 dark:bg-green-600',
                 outlined: 'text-green-800 border border-green-300 bg-green-50 dark:bg-gray-800 dark:text-green-400 dark:border-green-800',
                 icon: 'text-green-800 dark:text-green-400',
                 defaultIcon: (
@@ -78,7 +78,7 @@ const Alert = forwardRef<HTMLDivElement, AlertProps>(({
             },
             warning: {
                 soft: 'text-yellow-800 bg-yellow-50 dark:bg-gray-800 dark:text-yellow-300',
-                filled: 'text-white bg-yellow-600',
+                filled: 'text-white bg-yellow-600 dark:bg-yellow-600',
                 outlined: 'text-yellow-800 border border-yellow-300 bg-yellow-50 dark:bg-gray-800 dark:text-yellow-300 dark:border-yellow-800',
                 icon: 'text-yellow-800 dark:text-yellow-300',
                 defaultIcon: (
@@ -89,7 +89,7 @@ const Alert = forwardRef<HTMLDivElement, AlertProps>(({
             },
             error: {
                 soft: 'text-red-800 bg-red-50 dark:bg-gray-800 dark:text-red-400',
-                filled: 'text-white bg-red-600',
+                filled: 'text-white bg-red-600 dark:bg-red-600',
                 outlined: 'text-red-800 border border-red-300 bg-red-50 dark:bg-gray-800 dark:text-red-400 dark:border-red-800',
                 icon: 'text-red-800 dark:text-red-400',
                 defaultIcon: (
@@ -100,7 +100,7 @@ const Alert = forwardRef<HTMLDivElement, AlertProps>(({
             },
             dark: {
                 soft: 'text-gray-800 bg-gray-50 dark:bg-gray-800 dark:text-gray-300',
-                filled: 'text-white bg-gray-800',
+                filled: 'text-white bg-gray-800 dark:bg-gray-200',
                 outlined: 'text-gray-800 border border-gray-300 bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600',
                 icon: 'text-gray-800 dark:text-gray-300',
                 defaultIcon: (
@@ -164,8 +164,8 @@ const Alert = forwardRef<HTMLDivElement, AlertProps>(({
             inline-flex items-center justify-center h-8 w-8
             transition-colors duration-150
             ${variant === 'filled'
-                            ? 'text-white/70 hover:text-white hover:bg-white/20 focus:ring-white/50'
-                            : 'text-gray-400 hover:text-gray-900 hover:bg-gray-200 focus:ring-gray-300 dark:text-gray-500 dark:hover:text-white dark:hover:bg-gray-600'
+                            ? 'text-white/70 hover:text-white hover:bg-white/20 dark:hover:bg-gray-800/20 focus:ring-white/50'
+                            : 'text-gray-400 hover:text-gray-900 hover:bg-gray-200 focus:ring-gray-300 dark:focus:ring-gray-800 dark:text-gray-500 dark:hover:text-white dark:hover:bg-gray-600'
                         }
           `}
                     aria-label="Dismiss"
@@ -181,5 +181,3 @@ const Alert = forwardRef<HTMLDivElement, AlertProps>(({
 });
 
 Alert.displayName = 'Alert';
-
-export default Alert;

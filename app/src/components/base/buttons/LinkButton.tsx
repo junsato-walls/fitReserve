@@ -24,7 +24,7 @@ export interface LinkButtonProps extends Omit<AnchorHTMLAttributes<HTMLAnchorEle
     className?: string;
 }
 
-const LinkButton = forwardRef<HTMLAnchorElement, LinkButtonProps>(({
+export const LinkButton = forwardRef<HTMLAnchorElement, LinkButtonProps>(({
     children,
     variant = 'text',
     size = 'md',
@@ -119,5 +119,3 @@ const LinkButton = forwardRef<HTMLAnchorElement, LinkButtonProps>(({
 });
 
 LinkButton.displayName = 'LinkButton';
-
-export default LinkButton;

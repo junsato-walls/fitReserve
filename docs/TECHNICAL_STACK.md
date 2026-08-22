@@ -341,15 +341,13 @@ app/
 │   │   └── api/               # API Routes
 │   ├── components/            # React コンポーネント
 │   │   ├── base/             # 自作の基盤UI部品（外部UIライブラリ非依存）
-│   │   ├── common/           # 共通コンポーネント
-│   │   └── features/         # 機能別コンポーネント
-│   ├── actions/              # Server Actions
+│   │   ├── layouts/          # ページの骨組み
+│   ├── api/                  # Server Actions（FastAPIとの通信層）
 │   ├── lib/                  # ユーティリティ
 │   │   ├── api.ts           # API クライアント
 │   │   ├── auth.ts          # 認証ヘルパー
 │   │   └── utils.ts         # 汎用関数
-│   ├── types/                # TypeScript 型定義
-│   └── hooks/                # カスタムフック
+│   └── types/                # TypeScript 型定義
 ├── public/                    # 静的ファイル
 ├── tailwind.config.ts        # Tailwind CSS 設定
 ├── tsconfig.json             # TypeScript 設定
@@ -429,8 +427,8 @@ export const api = {
 ```
 components/
 ├── base/          # 最小単位のUI部品（Button, Input等）※自作
-├── common/        # 共通コンポーネント（Header, Footer等）
-└── features/      # 機能別コンポーネント（LoginForm, ReservationCard等）
+├── layouts/       # ページの骨組み（StaffLayout, Sidebar, Breadcrumb）
+（画面本体は src/views/ に配置する）
 ```
 
 ---

@@ -1,10 +1,11 @@
 "use client"
 
-import Alert from "@/components/base/feedback/Alert"
-import Button from "@/components/base/buttons/Button"
-import Card from "@/components/base/layouts/Card"
-import Input from "@/components/base/forms/Input"
+import { Alert } from "@/components/base/feedback/Alert";
+import { Button } from "@/components/base/buttons/Button";
+import { Card } from "@/components/base/display/Card";
+import { Input } from "@/components/base/forms/Input";
 import Link from "next/link"
+import { login } from "@/api/Auth"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 
@@ -20,20 +21,13 @@ export default function LoginPage() {
     setError(null)
     setLoading(true)
 
-    const res = await fetch("/api/auth/login", {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        personal_id: personalId,
-        password,
-      }),
-    })
-    const data = await res.json()
+    // Route Handlerを経由せず Server Action を直接呼ぶ。
+    // Cookieの発行は login() 内でサーバー側が行う。
+    const result = await login(personalId, password)
     setLoading(false)
 
-    if (!res.ok) {
-      setError(data.error || "ログインに失敗しました。")
+    if (!result.success) {
+      setError(result.error || "ログインに失敗しました。")
       return
     }
 

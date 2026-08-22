@@ -24,7 +24,7 @@ export interface FileInputProps {
     name?: string;
 }
 
-const FileInput = forwardRef<HTMLInputElement, FileInputProps>(({
+export const FileInput = forwardRef<HTMLInputElement, FileInputProps>(({
     // コンポーネント固有
     label,
     error,
@@ -59,7 +59,7 @@ const FileInput = forwardRef<HTMLInputElement, FileInputProps>(({
 
     // 基本スタイル
     const baseClasses = `
-    block text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer 
+    block text-sm text-gray-900 dark:text-gray-50 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer 
     bg-gray-50 dark:text-gray-400 focus:outline-none dark:bg-gray-700 
     dark:border-gray-600 dark:placeholder-gray-400
     file:mr-4 file:py-2 file:px-4 file:rounded-l-lg file:border-0 
@@ -67,7 +67,7 @@ const FileInput = forwardRef<HTMLInputElement, FileInputProps>(({
     file:cursor-pointer hover:file:bg-blue-100 dark:file:bg-gray-600 
     dark:file:text-gray-300 dark:hover:file:bg-gray-500
     disabled:cursor-not-allowed disabled:opacity-50
-    ${error ? 'border-red-500 focus:border-red-500' : ''}
+    ${error ? 'border-red-500 dark:border-red-500 focus:border-red-500 dark:focus:border-red-500' : ''}
     ${fullWidth ? 'w-full' : ''}
     ${className}
   `.trim();
@@ -78,8 +78,8 @@ const FileInput = forwardRef<HTMLInputElement, FileInputProps>(({
             {label && (
                 <label
                     htmlFor={fileInputId}
-                    className={`block mb-2 text-sm font-medium ${error ? 'text-red-700' : 'text-gray-900 dark:text-white'
-                        } ${required ? "after:content-['*'] after:text-red-500 after:ml-1" : ''}`}
+                    className={`block mb-2 text-sm font-medium ${error ? 'text-red-700 dark:text-red-400' : 'text-gray-900 dark:text-white'
+                        } ${required ? "after:content-['*'] after:text-red-500 dark:after:text-red-400 after:ml-1" : ''}`}
                 >
                     {label}
                 </label>
@@ -104,7 +104,7 @@ const FileInput = forwardRef<HTMLInputElement, FileInputProps>(({
 
             {/* エラーメッセージ */}
             {error && (
-                <p id={errorId} role="alert" className="mt-1 text-sm text-red-600">
+                <p id={errorId} role="alert" className="mt-1 text-sm text-red-600 dark:text-red-400">
                     {error}
                 </p>
             )}
@@ -113,5 +113,3 @@ const FileInput = forwardRef<HTMLInputElement, FileInputProps>(({
 });
 
 FileInput.displayName = 'FileInput';
-
-export default FileInput;

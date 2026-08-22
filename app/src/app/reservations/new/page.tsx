@@ -1,4 +1,4 @@
-import { ReservationForm } from "@/components/features/reservation/ReservationForm"
+import { ReservationForm } from "@/views/reservation/ReservationForm"
 import { Suspense } from "react"
 
 export default async function ReservationNewPage() {

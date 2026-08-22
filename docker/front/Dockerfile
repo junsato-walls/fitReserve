@@ -1,33 +1,21 @@
-# FROM node:20-alpine3.18
-
-# WORKDIR /usr/src/app
-
-# ADD ./app/package*.json ./
-# RUN npm install
-
-# COPY ./app ./
-
-# EXPOSE 3000
-# ENV CI=true
-# CMD ["npm", "run", "dev"]
-FROM node:20-alpine3.18
+FROM oven/bun:1-alpine
 
 WORKDIR /usr/src/app
 
-# パッケージ定義だけ先にコピーして install
-COPY ./app/package*.json ./
-RUN npm ci
+# パッケージ定義とロックファイルだけ先にコピーして install
+# （bun.lock は必ずコミットすること。--frozen-lockfile で再現性を担保する）
+COPY ./app/package.json ./app/bun.lock ./
+RUN bun install --frozen-lockfile
 
 # アプリ全部をコピー
 COPY ./app ./
 
 # 本番ビルド
-RUN npm run build
+RUN bun run build
 
 # 本番起動用の環境変数
 ENV NODE_ENV=production
 EXPOSE 3000
 
 # 起動コマンドを start に
-CMD ["npm", "run", "start"]
-
+CMD ["bun", "run", "start"]

@@ -53,7 +53,7 @@ interface ElementProps {
     [key: string]: unknown;
 }
 
-const Tooltip = forwardRef<HTMLDivElement, TooltipProps>(({
+export const Tooltip = forwardRef<HTMLDivElement, TooltipProps>(({
     content,
     children,
     placement = 'top',
@@ -296,8 +296,8 @@ const Tooltip = forwardRef<HTMLDivElement, TooltipProps>(({
         switch (variant) {
             case 'light':
                 return {
-                    tooltip: 'bg-white text-gray-900 border border-gray-200 shadow-lg dark:bg-gray-100 dark:text-gray-900',
-                    arrow: 'bg-white border-gray-200'
+                    tooltip: 'bg-white text-gray-900 border border-gray-200 dark:border-gray-700 shadow-lg dark:bg-gray-100 dark:text-gray-900',
+                    arrow: 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'
                 };
             case 'success':
                 return {
@@ -481,5 +481,3 @@ const Tooltip = forwardRef<HTMLDivElement, TooltipProps>(({
 });
 
 Tooltip.displayName = 'Tooltip';
-
-export default Tooltip;

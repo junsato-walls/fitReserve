@@ -1,0 +1,25 @@
+# ホスト側の成果物をイメージに持ち込まない
+# （node_modules はプラットフォーム依存のネイティブバイナリを含むため必須）
+**/node_modules
+**/.next
+**/out
+**/build
+
+# VCS・エディタ
+.git
+.gitignore
+.vscode
+.DS_Store
+
+# ドキュメント
+docs
+*.md
+
+# ローカル環境変数（本番はコンテナの environment で渡す）
+**/.env
+**/.env.local
+
+# キャッシュ類
+**/*.tsbuildinfo
+__pycache__
+**/*.pyc

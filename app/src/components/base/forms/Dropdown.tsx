@@ -2,7 +2,7 @@
 
 import { KeyboardEvent, MouseEvent, ReactNode, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 
-export interface DropdownItem<T = string> {
+export interface DropdownItem<T extends string | number = string> {
     id: string | number;
     label: string;
     value?: T;
@@ -12,7 +12,7 @@ export interface DropdownItem<T = string> {
     divider?: boolean;
 }
 
-export interface DropdownProps<T = string> {
+export interface DropdownProps<T extends string | number = string> {
     // 基本設定
     items: DropdownItem<T>[];
     trigger?: ReactNode;
@@ -41,7 +41,7 @@ export interface DropdownProps<T = string> {
     'aria-label'?: string;
 }
 
-function Dropdown<T = string>({
+export const Dropdown = <T extends string | number,>({
     items,
     trigger,
     placeholder = "Dropdown button",
@@ -57,7 +57,7 @@ function Dropdown<T = string>({
     className = '',
     menuClassName = '',
     'aria-label': ariaLabel,
-}: DropdownProps<T>) {
+}: DropdownProps<T>) => {
     const [isOpen, setIsOpen] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
     const menuRef = useRef<HTMLDivElement>(null);
@@ -364,7 +364,7 @@ function Dropdown<T = string>({
                     role="menu"
                     aria-label={ariaLabel}
                     className={`
-            absolute z-50 mt-2 bg-white divide-y divide-gray-100 rounded-lg shadow-lg
+            absolute z-50 mt-2 bg-white dark:bg-gray-800 divide-y divide-gray-100 dark:divide-gray-700 rounded-lg shadow-lg
             dark:bg-gray-700 border border-gray-200 dark:border-gray-600
             ${width}
             ${menuClassName}
@@ -401,7 +401,7 @@ function Dropdown<T = string>({
                                         className={`
                       flex items-center px-4 py-2 transition-colors
                       ${item.disabled
-                                                ? 'opacity-50 cursor-not-allowed text-gray-400'
+                                                ? 'opacity-50 cursor-not-allowed text-gray-400 dark:text-gray-500'
                                                 : 'hover:bg-gray-100 dark:hover:bg-gray-600 dark:hover:text-white cursor-pointer'
                                             }
                       ${isFocused ? 'bg-gray-100 dark:bg-gray-600' : ''}
@@ -426,5 +426,3 @@ function Dropdown<T = string>({
 }
 
 Dropdown.displayName = 'Dropdown';
-
-export default Dropdown;

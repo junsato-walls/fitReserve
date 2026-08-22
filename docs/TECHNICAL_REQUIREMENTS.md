@@ -69,7 +69,6 @@ fitReserve - 制服採寸予約管理システム
 | UI コンポーネント | 自作（`components/base/`） | - | 外部UIライブラリ非依存。維持コストを避けるため自作する |
 | アイコン | Lucide React | 0.525.0+ | アイコンライブラリ |
 | 日付処理 | date-fns | 4.1.0+ | 日付操作 |
-| PDF表示 | react-pdf | 10.0.1+ | PDF表示機能 |
 | S3 Client | AWS SDK (@aws-sdk) | 3.848.0+ | MinIO接続 |
 
 ### データベース
@@ -240,10 +239,9 @@ app/src/
 │   └── api/               # API Routes（NextAuth等）
 ├── components/            # Reactコンポーネント
 │   ├── base/             # 基本UI部品
-│   ├── common/           # 共通コンポーネント
-│   ├── features/         # 機能別コンポーネント
+│   ├── layouts/          # ページの骨組み
 │   └── base/             # 自作の基盤UI部品
-├── actions/              # Server Actions
+├── api/                  # Server Actions（FastAPIとの通信層）
 │   ├── Auth.ts          # 認証処理
 │   ├── Manual.ts        # 予約操作
 │   └── Storage.ts       # ファイルアップロード
@@ -251,11 +249,9 @@ app/src/
 │   ├── api.ts           # API クライアント
 │   ├── auth.ts          # 認証ヘルパー
 │   └── utils.ts         # 汎用関数
-├── types/                # TypeScript型定義
-│   ├── manual.ts
-│   └── user.ts
-└── hooks/                # カスタムフック
-    └── useMe.ts
+└── types/                # TypeScript型定義
+    ├── manual.ts
+    └── user.ts
 ```
 
 ### 4.3 UI要件

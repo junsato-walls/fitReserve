@@ -13,7 +13,7 @@ export interface RadioGroupProps {
     'aria-label'?: string;
 }
 
-export default function RadioGroup({
+export const RadioGroup = ({
     children,
     label,
     error,
@@ -21,7 +21,7 @@ export default function RadioGroup({
     required = false,
     className = '',
     'aria-label': ariaLabel,
-}: RadioGroupProps) {
+}: RadioGroupProps) => {
     const reactId = useId();
     const errorId = `radiogroup-${reactId}-error`;
 
@@ -43,8 +43,8 @@ export default function RadioGroup({
                 aria-label={!label ? ariaLabel : undefined}
             >
                 {label && (
-                    <legend className={`text-sm font-medium mb-2 ${error ? 'text-red-700' : 'text-gray-700'
-                        } ${required ? "after:content-['*'] after:text-red-500 after:ml-1" : ''}`}>
+                    <legend className={`text-sm font-medium mb-2 ${error ? 'text-red-700 dark:text-red-400' : 'text-gray-700 dark:text-gray-200'
+                        } ${required ? "after:content-['*'] after:text-red-500 dark:after:text-red-400 after:ml-1" : ''}`}>
                         {label}
                     </legend>
                 )}
@@ -57,7 +57,7 @@ export default function RadioGroup({
 
             {/* エラーメッセージ */}
             {error && (
-                <p id={errorId} role="alert" className="mt-1 text-sm text-red-600">
+                <p id={errorId} role="alert" className="mt-1 text-sm text-red-600 dark:text-red-400">
                     {error}
                 </p>
             )}

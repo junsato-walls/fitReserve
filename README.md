@@ -146,8 +146,8 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
 # フロントエンド
 cd app
-npm install
-npm run dev
+bun install
+bun run dev
 ```
 
 ---

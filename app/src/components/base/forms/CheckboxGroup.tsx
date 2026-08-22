@@ -13,7 +13,7 @@ export interface CheckboxGroupProps {
     'aria-label'?: string;
 }
 
-export default function CheckboxGroup({
+export const CheckboxGroup = ({
     children,
     label,
     error,
@@ -21,7 +21,7 @@ export default function CheckboxGroup({
     required = false,
     className = '',
     'aria-label': ariaLabel,
-}: CheckboxGroupProps) {
+}: CheckboxGroupProps) => {
     const reactId = useId();
     const errorId = `checkboxgroup-${reactId}-error`;
 
@@ -44,8 +44,8 @@ export default function CheckboxGroup({
                 aria-label={!label ? ariaLabel : undefined}
             >
                 {label && (
-                    <legend className={`text-sm font-medium mb-3 ${error ? 'text-red-700' : 'text-gray-700 dark:text-gray-300'
-                        } ${required ? "after:content-['*'] after:text-red-500 after:ml-1" : ''}`}>
+                    <legend className={`text-sm font-medium mb-3 ${error ? 'text-red-700 dark:text-red-400' : 'text-gray-700 dark:text-gray-300'
+                        } ${required ? "after:content-['*'] after:text-red-500 dark:after:text-red-400 after:ml-1" : ''}`}>
                         {label}
                     </legend>
                 )}
@@ -58,7 +58,7 @@ export default function CheckboxGroup({
 
             {/* エラーメッセージ */}
             {error && (
-                <p id={errorId} role="alert" className="mt-2 text-sm text-red-600">
+                <p id={errorId} role="alert" className="mt-2 text-sm text-red-600 dark:text-red-400">
                     {error}
                 </p>
             )}

@@ -135,7 +135,7 @@ api/
 app/
 ├── src/
 │   ├── middleware.ts      # Next.js ミドルウェア（認証など）
-│   ├── actions/           # Server Actions
+│   ├── api/               # Server Actions（FastAPIとの通信層）
 │   │   ├── Auth.ts
 │   │   ├── Manual.ts      # 削除予定（制服採寸予約システムに不要）
 │   │   ├── Progress.ts    # 削除予定（制服採寸予約システムに不要）
@@ -152,17 +152,13 @@ app/
 │   │   └── api/           # APIルート
 │   ├── components/        # Reactコンポーネント
 │   │   ├── base/          # 基本コンポーネント
-│   │   ├── common/        # 共通コンポーネント
-│   │   ├── features/      # 機能別コンポーネント
+│   │   ├── layouts/       # ページの骨組み
 │   │   │   ├── admin/
 │   │   │   ├── comments/  # 削除予定
 │   │   │   ├── manual/    # 削除予定
 │   │   │   ├── manualLists/ # 削除予定
 │   │   │   └── user/
 │   │   └── base/          # 自作の基盤コンポーネント（外部UIライブラリ非依存）
-│   ├── hooks/             # カスタムフック
-│   │   ├── use-mobile.ts
-│   │   └── useMe.ts
 │   ├── lib/               # ユーティリティ関数
 │   │   ├── api.ts
 │   │   ├── auth.ts
@@ -183,7 +179,7 @@ app/
 
 ```
 app/src/
-├── actions/
+├── api/
 │   ├── Auth.ts
 │   ├── Store.ts           # 店舗関連アクション（新規作成予定）
 │   ├── Reservation.ts     # 採寸予約アクション（新規作成予定）
@@ -198,9 +194,9 @@ app/src/
 │       ├── stores/        # 店舗管理（新規作成予定）
 │       ├── reservations/  # 予約管理（新規作成予定）
 │       └── uniforms/      # 制服種別管理（新規作成予定）
-├── components/features/
-│   ├── store/             # 店舗関連コンポーネント（新規作成予定）
-│   ├── reservation/       # 予約関連コンポーネント（新規作成予定）
+├── views/
+│   ├── store/             # 店舗関連画面（新規作成予定）
+│   ├── reservation/       # 予約関連画面（新規作成予定）
 │   └── user/
 └── types/
     ├── store.ts           # 店舗型定義（新規作成予定）
@@ -807,8 +803,8 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
 # フロントエンド起動
 cd app
-npm install
-npm run dev
+bun install
+bun run dev
 
 # API ドキュメント確認
 # http://localhost:8000/docs
@@ -823,7 +819,7 @@ pytest tests/
 
 # フロントエンドテスト
 cd app
-npm test
+bun test
 ```
 
 ### 開発の進め方

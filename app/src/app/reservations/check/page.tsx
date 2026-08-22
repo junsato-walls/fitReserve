@@ -1,4 +1,4 @@
-import { ReservationCheck } from "@/components/features/reservation/ReservationCheck"
+import { ReservationCheck } from "@/views/reservation/ReservationCheck"
 import { Suspense } from "react"
 
 export default async function ReservationCheckPage() {

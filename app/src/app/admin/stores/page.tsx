@@ -1,5 +1,5 @@
-import { StaffLayout } from "@/components/common/layout/StaffLayout"
-import { StoreManagement } from "@/components/features/admin/StoreManagement"
+import { StaffLayout } from "@/components/layouts/StaffLayout"
+import { StoreManagement } from "@/views/admin/StoreManagement"
 
 export default async function AdminStoresPage() {
     return (

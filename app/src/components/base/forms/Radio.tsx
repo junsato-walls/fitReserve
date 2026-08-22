@@ -23,7 +23,7 @@ export interface RadioProps {
     id?: string;
 }
 
-const Radio = forwardRef<HTMLInputElement, RadioProps>(({
+export const Radio = forwardRef<HTMLInputElement, RadioProps>(({
     // コンポーネント固有
     label,
     error,
@@ -67,11 +67,11 @@ const Radio = forwardRef<HTMLInputElement, RadioProps>(({
 
     // 基本スタイル
     const baseClasses = `
-    text-blue-600 bg-gray-100 border-gray-300 
-    focus:ring-blue-500 focus:ring-2 
-    disabled:bg-gray-200 disabled:cursor-not-allowed
+    text-blue-600 dark:text-blue-400 bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 
+    focus:ring-blue-500 dark:focus:ring-blue-800 focus:ring-2 
+    disabled:bg-gray-200 dark:disabled:bg-gray-700 disabled:cursor-not-allowed
     transition-colors
-    ${error ? 'border-red-500 focus:ring-red-500' : ''}
+    ${error ? 'border-red-500 dark:border-red-500 focus:ring-red-500 dark:focus:ring-red-800' : ''}
     ${sizeClasses[size]}
     ${className}
   `.trim();
@@ -99,9 +99,9 @@ const Radio = forwardRef<HTMLInputElement, RadioProps>(({
             {label && (
                 <label
                     htmlFor={radioId}
-                    className={`ml-2 font-medium cursor-pointer ${error ? 'text-red-700' : 'text-gray-900'
-                        } ${disabled ? 'text-gray-400 cursor-not-allowed' : ''
-                        } ${labelSizeClasses[size]} ${required ? "after:content-['*'] after:text-red-500 after:ml-1" : ''
+                    className={`ml-2 font-medium cursor-pointer ${error ? 'text-red-700 dark:text-red-400' : 'text-gray-900 dark:text-gray-50'
+                        } ${disabled ? 'text-gray-400 dark:text-gray-500 cursor-not-allowed' : ''
+                        } ${labelSizeClasses[size]} ${required ? "after:content-['*'] after:text-red-500 dark:after:text-red-400 after:ml-1" : ''
                         }`}
                 >
                     {label}
@@ -110,7 +110,7 @@ const Radio = forwardRef<HTMLInputElement, RadioProps>(({
 
             {/* エラーメッセージ（errorを受け取っていながら表示していなかったため追加） */}
             {error && (
-                <span id={errorId} role="alert" className="ml-2 text-sm text-red-600">
+                <span id={errorId} role="alert" className="ml-2 text-sm text-red-600 dark:text-red-400">
                     {error}
                 </span>
             )}
@@ -119,5 +119,3 @@ const Radio = forwardRef<HTMLInputElement, RadioProps>(({
 });
 
 Radio.displayName = 'Radio';
-
-export default Radio;

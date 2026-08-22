@@ -1,5 +1,5 @@
-import { StaffLayout } from "@/components/common/layout/StaffLayout"
-import { AdminDashboard } from "@/components/features/admin/AdminDashboard"
+import { StaffLayout } from "@/components/layouts/StaffLayout"
+import { AdminDashboard } from "@/views/admin/AdminDashboard"
 
 export default async function AdminPage() {
     return (

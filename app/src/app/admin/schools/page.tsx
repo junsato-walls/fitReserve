@@ -1,5 +1,5 @@
-import { StaffLayout } from "@/components/common/layout/StaffLayout"
-import { SchoolManagement } from "@/components/features/admin/SchoolManagement"
+import { StaffLayout } from "@/components/layouts/StaffLayout"
+import { SchoolManagement } from "@/views/admin/SchoolManagement"
 
 export default async function AdminSchoolsPage() {
     return (

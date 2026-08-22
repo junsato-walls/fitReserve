@@ -78,13 +78,19 @@ app/src/
 ├── app/                # App Router（ページ）
 ├── components/
 │   ├── base/          # 自作の基盤コンポーネント（★正式な基盤。他システムでも再利用）
-│   ├── common/        # fitReserve内で複数機能から使う複合コンポーネント（base/を組み合わせて作る）
-│   └── features/      # 機能別コンポーネント
-├── actions/           # Server Actions
+│   └── layouts/       # ページの骨組み（Sidebar, Breadcrumb などの外枠）
+├── views/             # 画面（ページ本体のコンポーネント）
+├── api/               # Server Actions（FastAPIバックエンドとの通信層）
 ├── types/             # 型定義
-├── hooks/             # カスタムフック
 └── lib/               # ユーティリティ
 ```
+
+**方針**:
+- **`api/`**: バックエンド通信はすべてServer Actionsに集約する。
+  Next.js側にRoute Handler（`app/api/`）を作ってAPIサーバーのように振る舞わせない。
+  APIの実体はFastAPI（`api/`）であり、Next.jsはその呼び出し役に徹する。
+- **グローバルな `hooks/` は作らない**: フックが乱立すると可読性が落ちるため、
+  特定機能でのみ使うフックは、その機能のコンポーネントと同じ場所に置く。
 
 **共通コンポーネントの配置ルール・カテゴリ分けの詳細は [COMPONENT_ORGANIZATION.md](./COMPONENT_ORGANIZATION.md) を参照。**
 

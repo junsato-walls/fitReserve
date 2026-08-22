@@ -26,11 +26,15 @@
 ## 2. レイヤー構成
 
 ```
-components/
-├── base/                # 自作・外部UIライブラリ非依存の基盤コンポーネント（正式な基盤）
-├── common/              # fitReserve内で複数機能から使う複合コンポーネント（base/を組み合わせて作る）
-└── features/<domain>/   # 特定機能に紐づくコンポーネント（Server Actions・業務ルールを含む）
+src/
+├── components/
+│   ├── base/            # 自作・外部UIライブラリ非依存の基盤コンポーネント（正式な基盤）
+│   └── layouts/         # ページの骨組み（外枠。base/display とは粒度が異なる）
+└── views/<domain>/      # 画面本体（Server Actions・業務ルールを含む）
 ```
+
+画面（ページ本体）は `components/` ではなく **`src/views/`** に置く。
+配置ルールの詳細は `src/views/_README.md` を参照。
 
 ### 2-1. `base/`
 
@@ -40,23 +44,28 @@ components/
 
 ```
 base/
-├── buttons/    # Button, IconButton, LinkButton, Pagination, Breadcrumb, BottomNavigation, CopyButton
+├── buttons/    # Button, IconButton, LinkButton, CopyButton
 ├── feedback/   # Alert, Toast, Spinner
-├── forms/      # Input, Textarea, Select, Dropdown, Checkbox(+Group), Radio(+Group), Datepicker, FileInput, CommentBox, CustomCalendar
+├── forms/      # Input, Textarea, Select, Dropdown, Checkbox(+Group), Radio(+Group), Datepicker, FileInput, CommentBox
 ├── icons/      # ArrowLeft, ArrowRight, Delete, Download, Edit
-├── layouts/    # Table, Card, Badge, Tabs, Avatar, Carousel, ChatBubble
+├── display/    # Table, Card, Badge, Tabs, Avatar, Carousel, ChatBubble
+├── navigation/ # Breadcrumb, Pagination, BottomNavigation
 └── overlays/   # Modal, Drawer, Tooltips, Banner, Loading
 ```
 
-### 2-2. `common/`
+### 2-2. `layouts/`
 
-`base/` を組み合わせて作る、fitReserve内の複数機能から使う部品（ページ骨組み、確認ダイアログなど）。
+ページの骨組み（サイドバー・パンくずなど、画面を共通して囲む外枠）。実体は `StaffLayout`・`Sidebar`・`Breadcrumb`。
 
-**配置条件**: 2つ以上の `features/*` から使われる見込みがあるか自問する。見込みが無ければ `features/<domain>/` に置く。
+**配置条件**: 2つ以上の `views/*` を共通して囲む枠かを自問する。枠でなければ `base/`、画面専用なら `views/<domain>/` に置く。
 
-### 2-3. `features/<domain>/`
+> **注意**: `components/base/display/`（Card・Table などの**部品**）とは粒度が異なる。
+> ここは**ページ全体**の骨組みを置く場所。
 
-特定のドメイン（`reservation`・`staff`・`admin`）に紐づくコンポーネント。**UIの見た目を自前で組まず、`base/` の部品をそのまま使う。**
+### 2-3. `views/<domain>/`
+
+画面本体。ドメイン（`reservation`・`staff`・`admin`）ごとにフォルダを切る。
+**UIの見た目を自前で組まず、`base/` の部品をそのまま使う。**
 
 ---
 
@@ -64,11 +73,12 @@ base/
 
 1. **`base/` に相当する部品があるか？**
    → あれば**そのまま使う**（propsで足りなければ 4章の原則に沿って `base/` 側を拡張する）。
-2. **特定の機能専用か？業務ロジックを含むか？**
-   → Yes → `features/<domain>/`
-   → No（2機能以上で使う純粋なUI合成）→ 次へ
-3. **`common/` に同名・類似コンポーネントが既に無いか検索したか？**
-   → 検索済みで無ければ `common/` に新規作成。あれば流用・拡張する。
+2. **特定の画面専用か？業務ロジックを含むか？**
+   → Yes → `views/<domain>/`
+   → No（2画面以上で使う純粋なUI合成）→ 次へ
+3. **2つ以上の画面を共通して囲む枠か？**
+   → Yes → `layouts/`
+   → No（枠ではない汎用UI部品）→ `base/` に新規作成する。
 
 ---
 
@@ -89,7 +99,7 @@ base/
 <Badge tone="warning">予約受付</Badge>
 ```
 
-バッジの用途語彙 `BadgeTone` は `base/layouts/Badge.tsx` が定義し、`base/layouts/Table.tsx` もそれを参照する。
+バッジの用途語彙 `BadgeTone` は `base/display/Badge.tsx` が定義し、`base/display/Table.tsx` もそれを参照する。
 
 | tone | 用途 |
 |---|---|
@@ -179,7 +189,7 @@ ARIAでは「**値を選ぶ**」Listboxパターンと「**操作を実行する
 
 ### 5-2. フォーカスの持たせ方
 
-ポップアップを持つ部品（Select・Datepicker・CustomCalendar）は、
+ポップアップを持つ部品（Select・Datepicker・Dropdown）は、
 **DOMフォーカスをトリガー（入力欄・ボタン）に残したまま `aria-activedescendant` で位置を伝える**方式で統一している。
 入力しながらのキーボード操作が競合しないため。
 
@@ -192,7 +202,7 @@ ARIAでは「**値を選ぶ**」Listboxパターンと「**操作を実行する
 
 1. **新規コンポーネント作成前に必ず `base/` を検索する。**
 2. **同じ役割のコンポーネントを複数レイヤーで新規に作らない。**
-3. **`common/` に置く前に「2機能以上で使うか」を自問する。**
+3. **`layouts/` に置く前に「2画面以上を共通して囲む枠か」を自問する。** 枠でなければ `base/` に作る。
 
 ---
 
@@ -200,10 +210,10 @@ ARIAでは「**値を選ぶ**」Listboxパターンと「**操作を実行する
 
 | # | 内容 | 状況 |
 |---|---|---|
-| 1 | **`base/README.md` と実フォルダ構成の不一致。** READMEは `actions/`・`overlay/`・`layout/` と記載しているが実体は `buttons/`・`overlays/`・`layouts/`。`icons/` はREADMEに記載が無い | 未着手 |
-| 2 | `common/` 配下の重複（`common/buttons/Button.tsx`・`common/table/Table.tsx`）を `base/` に寄せるか判断する | 未着手 |
-| 3 | `base/forms/CustomCalendar.tsx` と `base/forms/Datepicker.tsx` の用途重複。画面では `Datepicker` に一本化済みで `CustomCalendar` は未使用 | 判断待ち |
-| 4 | `react-pdf` が参照0件。帳票機能（F-8）で使う想定が無ければ削除できる | 判断待ち |
+| 1 | **`base/README.md` と実フォルダ構成の不一致。** | **完了**（2026-08-22: `base/layouts/` を `base/display/` に改名し、README を実構成に合わせて全面更新） |
+| 2 | `common/` 配下の重複（`Button.tsx`・`Table.tsx`）を `base/` に寄せるか判断する | **完了**（2026-08-22: `common/` を `layouts/` に改名し、未使用の `buttons/`・`table/`・`feedback/` を削除） |
+| 3 | `base/forms/CustomCalendar.tsx` と `base/forms/Datepicker.tsx` の用途重複 | **完了**（2026-08-22: 予約フォームで両者を並べて比較し、`Datepicker` を採用。`CustomCalendar` は削除） |
+| 4 | `react-pdf` が参照0件 | **完了**（2026-08-22: 帳票機能で使う想定が無いため依存ごと削除。空の `public/pdf/` も削除） |
 | 5 | `base/` の `next/image` 依存。Next.js以外への持ち出しを想定するなら要検討 | 認識のみ |
 
 ### 既知の制約（対応不要と判断したもの）

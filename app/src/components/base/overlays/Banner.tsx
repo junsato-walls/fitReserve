@@ -39,7 +39,7 @@ export interface BannerProps {
     autoHideDelay?: number;
 }
 
-const Banner = forwardRef<HTMLDivElement, BannerProps>(({
+export const Banner = forwardRef<HTMLDivElement, BannerProps>(({
     children,
     message,
     icon,
@@ -115,7 +115,7 @@ const Banner = forwardRef<HTMLDivElement, BannerProps>(({
                     banner: "bg-gray-50 border-gray-200 dark:bg-gray-700 dark:border-gray-600",
                     text: "text-gray-800 dark:text-gray-200",
                     icon: "bg-gray-200 text-gray-600 dark:bg-gray-600 dark:text-gray-300",
-                    button: "text-gray-400 hover:bg-gray-200 hover:text-gray-900 dark:hover:bg-gray-600 dark:hover:text-white"
+                    button: "text-gray-400 dark:text-gray-500 hover:bg-gray-200 hover:text-gray-900 dark:hover:bg-gray-600 dark:hover:text-white"
                 };
             default: // 'info'
                 return {
@@ -284,5 +284,3 @@ const Banner = forwardRef<HTMLDivElement, BannerProps>(({
 });
 
 Banner.displayName = 'Banner';
-
-export default Banner;

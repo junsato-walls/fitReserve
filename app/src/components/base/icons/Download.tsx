@@ -4,11 +4,11 @@ interface DownloadIconProps extends SVGProps<SVGSVGElement> {
     size?: 'sm' | 'md' | 'lg' | 'xl';
 }
 
-export default function DownloadIcon({
+export const DownloadIcon = ({
     size = 'md',
     className = '',
     ...props
-}: DownloadIconProps) {
+}: DownloadIconProps) => {
     // サイズ別のクラス
     const sizeClasses = {
         sm: 'w-4 h-4',

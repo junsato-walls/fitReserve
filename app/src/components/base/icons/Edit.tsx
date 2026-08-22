@@ -4,11 +4,11 @@ interface EditIconProps extends SVGProps<SVGSVGElement> {
     size?: 'sm' | 'md' | 'lg' | 'xl';
 }
 
-export default function EditIcon({
+export const EditIcon = ({
     size = 'md',
     className = '',
     ...props
-}: EditIconProps) {
+}: EditIconProps) => {
     // サイズ別のクラス
     const sizeClasses = {
         sm: 'w-4 h-4',

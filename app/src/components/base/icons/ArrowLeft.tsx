@@ -4,11 +4,11 @@ interface ArrowLeftIconProps extends SVGProps<SVGSVGElement> {
     size?: 'sm' | 'md' | 'lg' | 'xl';
 }
 
-export default function ArrowRightIcon({
+export const ArrowLeftIcon = ({
     size = 'md',
     className = '',
     ...props
-}: ArrowLeftIconProps) {
+}: ArrowLeftIconProps) => {
     // サイズ別のクラス
     const sizeClasses = {
         sm: 'w-4 h-4',

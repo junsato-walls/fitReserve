@@ -11,7 +11,7 @@ fitReserveプロジェクトでClaude AIを活用するための最小限のガ�
 以下の操作は確認なしで実行可能：
 
 - Docker操作（起動、停止、再起動、ログ確認）
-- npm install（依存関係のインストール）
+- bun install（依存関係のインストール）
 - ビルド、テスト実行
 - コード生成・編集
 - 開発環境でのデータベーステスト（テストデータ作成など）
@@ -42,7 +42,7 @@ api/routers/admin/配下に[機能名]エンドポイントを作成
 ```
 
 ```
-app/src/components/features/配下に[機能名]コンポーネントを作成
+app/src/views/配下に[画面名]コンポーネントを作成
 - app/src/components/base/ の自作コンポーネントを使用（外部UIライブラリは使わない）
 - TypeScript型定義含む
 ```

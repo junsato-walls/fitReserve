@@ -2,7 +2,7 @@
 
 import { forwardRef, useEffect } from "react";
 import { createPortal } from "react-dom";
-import Spinner from "../feedback/Spinner";
+import { Spinner } from "../feedback/Spinner";
 
 export interface LoadingProps {
     // 表示制御
@@ -33,7 +33,7 @@ export interface LoadingProps {
     zIndex?: number;
 }
 
-const Loading = forwardRef<HTMLDivElement, LoadingProps>(({
+export const Loading = forwardRef<HTMLDivElement, LoadingProps>(({
     visible = false,
     text = 'Loading...',
     description,
@@ -156,5 +156,3 @@ const Loading = forwardRef<HTMLDivElement, LoadingProps>(({
 });
 
 Loading.displayName = 'Loading';
-
-export default Loading;

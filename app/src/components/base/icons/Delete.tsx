@@ -4,11 +4,11 @@ interface DeleteIconProps extends SVGProps<SVGSVGElement> {
     size?: 'sm' | 'md' | 'lg' | 'xl';
 }
 
-export default function DeleteIcon({
+export const DeleteIcon = ({
     size = 'md',
     className = '',
     ...props
-}: DeleteIconProps) {
+}: DeleteIconProps) => {
     // サイズ別のクラス
     const sizeClasses = {
         sm: 'w-4 h-4',

@@ -54,7 +54,7 @@ export interface ModalProps {
     zIndex?: number;
 }
 
-const Modal = forwardRef<HTMLDivElement, ModalProps>(({
+export const Modal = forwardRef<HTMLDivElement, ModalProps>(({
     open = false,
     onOpenChange,
     onClose,
@@ -231,7 +231,7 @@ const Modal = forwardRef<HTMLDivElement, ModalProps>(({
                             {showCloseButton && (
                                 <button
                                     type="button"
-                                    className="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center dark:hover:bg-gray-600 dark:hover:text-white"
+                                    className="text-gray-400 dark:text-gray-500 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center dark:hover:bg-gray-600 dark:hover:text-white"
                                     onClick={handleClose}
                                     aria-label="Close modal"
                                 >
@@ -263,7 +263,7 @@ const Modal = forwardRef<HTMLDivElement, ModalProps>(({
                         <div className={`
                             flex items-center 
                             p-4 md:p-5 
-                            border-t border-gray-200 rounded-b 
+                            border-t border-gray-200 dark:border-gray-700 rounded-b 
                             dark:border-gray-600
                             ${footerClassName}
                         `}>
@@ -320,5 +320,3 @@ const Modal = forwardRef<HTMLDivElement, ModalProps>(({
 });
 
 Modal.displayName = 'Modal';
-
-export default Modal;

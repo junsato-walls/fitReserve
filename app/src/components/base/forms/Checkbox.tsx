@@ -24,7 +24,7 @@ export interface CheckboxProps {
     id?: string;
 }
 
-const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(({
+export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(({
     // コンポーネント固有
     label,
     error,
@@ -75,11 +75,11 @@ const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(({
 
     // 基本スタイル
     const baseClasses = `
-    text-blue-600 bg-gray-100 border-gray-300 rounded-sm 
+    text-blue-600 dark:text-blue-400 bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-sm 
     focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 
     focus:ring-2 dark:bg-gray-700 dark:border-gray-600
-    disabled:bg-gray-200 disabled:cursor-not-allowed transition-colors
-    ${error ? 'border-red-500 focus:ring-red-500' : ''}
+    disabled:bg-gray-200 dark:disabled:bg-gray-700 disabled:cursor-not-allowed transition-colors
+    ${error ? 'border-red-500 dark:border-red-500 focus:ring-red-500 dark:focus:ring-red-800' : ''}
     ${sizeClasses[size]}
     ${className}
   `.trim();
@@ -107,9 +107,9 @@ const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(({
             {label && (
                 <label
                     htmlFor={checkboxId}
-                    className={`ms-2 font-medium cursor-pointer ${error ? 'text-red-700' : 'text-gray-900 dark:text-gray-300'
-                        } ${disabled ? 'text-gray-400 cursor-not-allowed' : ''
-                        } ${labelSizeClasses[size]} ${required ? "after:content-['*'] after:text-red-500 after:ml-1" : ''
+                    className={`ms-2 font-medium cursor-pointer ${error ? 'text-red-700 dark:text-red-400' : 'text-gray-900 dark:text-gray-300'
+                        } ${disabled ? 'text-gray-400 dark:text-gray-500 cursor-not-allowed' : ''
+                        } ${labelSizeClasses[size]} ${required ? "after:content-['*'] after:text-red-500 dark:after:text-red-400 after:ml-1" : ''
                         }`}
                 >
                     {label}
@@ -120,7 +120,7 @@ const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(({
                 （旧実装は !label の時だけ表示していたため、ラベル付きだと
                   aria-describedby の参照先が存在しない状態になっていた） */}
             {error && (
-                <span id={errorId} role="alert" className="ml-2 text-sm text-red-600">
+                <span id={errorId} role="alert" className="ml-2 text-sm text-red-600 dark:text-red-400">
                     {error}
                 </span>
             )}
@@ -129,5 +129,3 @@ const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(({
 });
 
 Checkbox.displayName = 'Checkbox';
-
-export default Checkbox;

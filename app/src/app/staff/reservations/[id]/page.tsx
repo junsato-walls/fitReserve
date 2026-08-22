@@ -1,5 +1,5 @@
-import { StaffLayout } from "@/components/common/layout/StaffLayout"
-import { StaffReservationDetail } from "@/components/features/staff/StaffReservationDetail"
+import { StaffLayout } from "@/components/layouts/StaffLayout"
+import { StaffReservationDetail } from "@/views/staff/StaffReservationDetail"
 
 export default async function StaffReservationDetailPage({
     params,

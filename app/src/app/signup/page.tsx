@@ -3,10 +3,10 @@
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
-import Button from "@/components/base/buttons/Button"
-import Card from "@/components/base/layouts/Card"
-import Input from "@/components/base/forms/Input"
-import Alert from "@/components/base/feedback/Alert"
+import { Button } from "@/components/base/buttons/Button";
+import { Card } from "@/components/base/display/Card";
+import { Input } from "@/components/base/forms/Input";
+import { Alert } from "@/components/base/feedback/Alert";
 
 export default function SignupPage() {
     const router = useRouter()

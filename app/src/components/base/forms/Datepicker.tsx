@@ -57,7 +57,7 @@ export interface DatepickerProps extends Omit<InputHTMLAttributes<HTMLInputEleme
     containerClassName?: string;
 }
 
-const Datepicker = forwardRef<HTMLInputElement, DatepickerProps>(({
+export const Datepicker = forwardRef<HTMLInputElement, DatepickerProps>(({
     value,
     defaultValue,
     dateFormat = 'YYYY-MM-DD',
@@ -466,14 +466,14 @@ const Datepicker = forwardRef<HTMLInputElement, DatepickerProps>(({
             {label && (
                 <label
                     htmlFor={baseId}
-                    className={`block text-sm font-medium mb-1 ${error ? 'text-red-700' : 'text-gray-700'}`}
+                    className={`block text-sm font-medium mb-1 ${error ? 'text-red-700 dark:text-red-400' : 'text-gray-700 dark:text-gray-200'}`}
                 >
                     {label}
                 </label>
             )}
 
             {helperText && (
-                <p className="text-sm text-gray-500 mb-2">{helperText}</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">{helperText}</p>
             )}
 
             {/* アイコン */}
@@ -507,13 +507,13 @@ const Datepicker = forwardRef<HTMLInputElement, DatepickerProps>(({
                 aria-invalid={error ? true : undefined}
                 aria-describedby={error ? errorId : undefined}
                 className={`
-          bg-gray-50 border border-gray-300 text-gray-900 rounded-lg 
-          focus:ring-blue-500 focus:border-blue-500 block w-full
+          bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-50 rounded-lg 
+          focus:ring-blue-500 dark:focus:ring-blue-800 focus:border-blue-500 dark:focus:border-blue-500 block w-full
           dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 
           dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500
           disabled:opacity-50 disabled:cursor-not-allowed
           ${sizeClasses[size].input}
-          ${error ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}
+          ${error ? 'border-red-500 dark:border-red-500 focus:border-red-500 dark:focus:border-red-500 focus:ring-red-500 dark:focus:ring-red-800' : ''}
           ${className}
         `}
                 {...props}
@@ -525,7 +525,7 @@ const Datepicker = forwardRef<HTMLInputElement, DatepickerProps>(({
                 <button
                     type="button"
                     onClick={handleClear}
-                    className="absolute inset-y-0 end-0 flex items-center pe-3 text-gray-400 hover:text-gray-600"
+                    className="absolute inset-y-0 end-0 flex items-center pe-3 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
                 >
                     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
@@ -588,7 +588,7 @@ const Datepicker = forwardRef<HTMLInputElement, DatepickerProps>(({
                                     key={day}
                                     role="columnheader"
                                     aria-label={`${day}曜日`}
-                                    className={`py-2 text-sm font-medium text-center ${dayIndex === 0 ? 'text-red-500' : dayIndex === 6 ? 'text-blue-500' : 'text-gray-500 dark:text-gray-400'
+                                    className={`py-2 text-sm font-medium text-center ${dayIndex === 0 ? 'text-red-500 dark:text-red-400' : dayIndex === 6 ? 'text-blue-500 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'
                                         }`}
                                 >
                                     {day}
@@ -627,9 +627,9 @@ const Datepicker = forwardRef<HTMLInputElement, DatepickerProps>(({
                     flex h-11 w-full min-w-11 items-center justify-center
                     rounded-lg text-base hover:bg-blue-100 dark:hover:bg-blue-900
                     ${isCurrentMonth ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500'}
-                    ${isSelected ? 'bg-blue-600 text-white hover:bg-blue-700' : ''}
+                    ${isSelected ? 'bg-blue-600 dark:bg-blue-600 text-white hover:bg-blue-700 dark:hover:bg-blue-600' : ''}
                     ${isToday && !isSelected ? 'bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-300' : ''}
-                    ${isActive && !isSelected ? 'ring-2 ring-blue-500' : ''}
+                    ${isActive && !isSelected ? 'ring-2 ring-blue-500 dark:ring-blue-800' : ''}
                     ${isDisabled ? 'opacity-50 cursor-not-allowed hover:bg-transparent' : ''}
                   `}
                                         >
@@ -654,5 +654,3 @@ const Datepicker = forwardRef<HTMLInputElement, DatepickerProps>(({
 });
 
 Datepicker.displayName = 'Datepicker';
-
-export default Datepicker;

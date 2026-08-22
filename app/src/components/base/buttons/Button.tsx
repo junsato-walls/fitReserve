@@ -21,7 +21,7 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
     rightIcon?: ReactNode;
 }
 
-export default function Button({
+export const Button = ({
     label,
     subLabel,
     selected,
@@ -35,35 +35,36 @@ export default function Button({
     rightIcon,
     className = '',
     disabled,
+    type = 'button',
     ...props
-}: ButtonProps) {
+}: ButtonProps) => {
     const variantStyles = {
         primary: `
-            text-white bg-blue-700 hover:bg-blue-800 active:bg-blue-900 active:scale-95
+            text-white bg-blue-700 dark:bg-blue-600 hover:bg-blue-800 dark:hover:bg-blue-700 active:bg-blue-900 dark:active:bg-blue-700 active:scale-95
         `,
         secondary: `
-            text-gray-900 bg-white border border-gray-200 hover:bg-gray-100 hover:text-blue-700 active:bg-blue-900 active:scale-95
+            text-gray-900 dark:text-gray-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-blue-700 dark:hover:text-blue-400 active:bg-blue-900 dark:active:bg-blue-700 active:scale-95
         `,
         success: `
-            text-white bg-green-700 hover:bg-green-800 active:bg-blue-900 active:scale-95
+            text-white bg-green-700 dark:bg-green-600 hover:bg-green-800 dark:hover:bg-green-700 active:bg-blue-900 dark:active:bg-blue-700 active:scale-95
         `,
         danger: `
-            text-white bg-red-700 hover:bg-red-800 active:bg-blue-900 active:scale-95
+            text-white bg-red-700 dark:bg-red-600 hover:bg-red-800 dark:hover:bg-red-700 active:bg-blue-900 dark:active:bg-blue-700 active:scale-95
         `,
         warning: `
-            text-white bg-yellow-400 hover:bg-yellow-500 active:bg-blue-900 active:scale-95
+            text-white bg-yellow-400 dark:bg-yellow-600 hover:bg-yellow-500 dark:hover:bg-yellow-600 active:bg-blue-900 dark:active:bg-blue-700 active:scale-95
         `,
         light: `
-            text-gray-900 bg-white border border-gray-300 hover:bg-gray-100 active:bg-blue-900 active:scale-95
+            text-gray-900 dark:text-gray-50 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 active:bg-blue-900 dark:active:bg-blue-700 active:scale-95
         `,
         dark: `
-            text-white bg-gray-800 hover:bg-gray-900 active:bg-blue-900 active:scale-95
+            text-white bg-gray-800 dark:bg-gray-200 hover:bg-gray-900 dark:hover:bg-gray-100 active:bg-blue-900 dark:active:bg-blue-700 active:scale-95
         `,
         outline: `
-            text-blue-700 hover:text-white border-2 border-blue-700 hover:bg-blue-800 active:bg-blue-900 active:scale-95
+            text-blue-700 dark:text-blue-400 hover:text-white border-2 border-blue-700 dark:border-blue-600 hover:bg-blue-800 dark:hover:bg-blue-700 active:bg-blue-900 dark:active:bg-blue-700 active:scale-95
         `,
         ghost: `
-            text-gray-500 hover:text-gray-900 border-2 hover:bg-gray-100 active:bg-blue-900 active:scale-95
+            text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-50 border-2 hover:bg-gray-100 dark:hover:bg-gray-700 active:bg-blue-900 dark:active:bg-blue-700 active:scale-95
         `
     };
 
@@ -138,6 +139,8 @@ export default function Button({
 
     return (
         <button
+            // フォーム内での暗黙の submit を防ぐ。送信ボタンは type="submit" を明示すること
+            type={type}
             className={finalClassName}
             disabled={disabled || isDisabled || isLoading}
             // 選択トグルとして使う場合は状態を支援技術へ伝える

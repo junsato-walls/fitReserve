@@ -2,13 +2,13 @@
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 
-export interface SelectOption<T = string> {
+export interface SelectOption<T extends string | number = string> {
     value: T;
     label: string;
     disabled?: boolean;
 }
 
-export interface SelectProps<T = string> {
+export interface SelectProps<T extends string | number = string> {
     // 値
     options: SelectOption<T>[];
     value?: T;
@@ -46,7 +46,7 @@ const TYPEAHEAD_RESET_MS = 500;
  * 「編集」「削除」などの操作を並べる用途には Menu パターンの Dropdown を使うこと
  * （ARIA上、値の選択と操作の実行は別パターンとして区別されている）。
  */
-function Select<T extends string | number = string>({
+export const Select = <T extends string | number,>({
     options,
     value,
     onChange,
@@ -63,7 +63,7 @@ function Select<T extends string | number = string>({
     id,
     name,
     'aria-label': ariaLabel,
-}: SelectProps<T>) {
+}: SelectProps<T>) => {
     const reactId = useId();
     const baseId = id || `select-${reactId}`;
     const listboxId = `${baseId}-listbox`;
@@ -282,7 +282,7 @@ function Select<T extends string | number = string>({
                     className="block mb-1.5 text-sm font-medium text-gray-900 dark:text-white"
                 >
                     {label}
-                    {required && <span className="ml-1 text-red-600" aria-hidden="true">*</span>}
+                    {required && <span className="ml-1 text-red-600 dark:text-red-400" aria-hidden="true">*</span>}
                 </label>
             )}
 
@@ -311,11 +311,11 @@ function Select<T extends string | number = string>({
                     aria-describedby={describedBy || undefined}
                     className={`
                         flex items-center justify-between gap-2 w-full
-                        bg-white border rounded-lg text-left
-                        focus:outline-none focus:ring-4 focus:ring-blue-300
+                        bg-white dark:bg-gray-800 border rounded-lg text-left
+                        focus:outline-none focus:ring-4 focus:ring-blue-300 dark:focus:ring-blue-800
                         disabled:opacity-50 disabled:cursor-not-allowed
                         dark:bg-gray-800 dark:text-white dark:border-gray-600 dark:focus:ring-blue-800
-                        ${error ? 'border-red-500 dark:border-red-500' : 'border-gray-300'}
+                        ${error ? 'border-red-500 dark:border-red-500' : 'border-gray-300 dark:border-gray-600'}
                         ${sizeClasses[size]}
                         ${className}
                     `}
@@ -355,13 +355,13 @@ function Select<T extends string | number = string>({
                         tabIndex={-1}
                         className={`
                             absolute z-50 mt-1 w-full max-h-60 overflow-auto
-                            bg-white border border-gray-200 rounded-lg shadow-lg py-1
+                            bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1
                             dark:bg-gray-700 dark:border-gray-600
                             ${menuClassName}
                         `}
                     >
                         {options.length === 0 && (
-                            <li className="px-4 py-2 text-sm text-gray-400">選択肢がありません</li>
+                            <li className="px-4 py-2 text-sm text-gray-400 dark:text-gray-500">選択肢がありません</li>
                         )}
 
                         {options.map((option, index) => {
@@ -382,7 +382,7 @@ function Select<T extends string | number = string>({
                                     className={`
                                         flex items-center justify-between px-4 py-2 text-sm
                                         ${option.disabled
-                                            ? 'opacity-50 cursor-not-allowed text-gray-400'
+                                            ? 'opacity-50 cursor-not-allowed text-gray-400 dark:text-gray-500'
                                             : 'cursor-pointer text-gray-700 dark:text-gray-200'}
                                         ${isActive && !option.disabled ? 'bg-gray-100 dark:bg-gray-600' : ''}
                                         ${isSelected ? 'font-semibold' : ''}
@@ -428,5 +428,3 @@ function Select<T extends string | number = string>({
 }
 
 Select.displayName = 'Select';
-
-export default Select;

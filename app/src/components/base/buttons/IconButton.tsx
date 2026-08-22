@@ -13,7 +13,7 @@ interface IconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
     onBlur?: (event: React.FocusEvent<HTMLButtonElement>) => void;
 }
 
-export default function IconButton({
+export const IconButton = ({
     icon,
     variant = 'primary',
     size = 'md',
@@ -27,20 +27,20 @@ export default function IconButton({
     onFocus,
     onBlur,
     ...props
-}: IconButtonProps) {
+}: IconButtonProps) => {
     // バリアント別のスタイル
     const variantStyles = {
         primary: `
-            text-white bg-blue-700 hover:bg-blue-800 active:bg-blue-900 active:scale-95
+            text-white bg-blue-700 dark:bg-blue-600 hover:bg-blue-800 dark:hover:bg-blue-700 active:bg-blue-900 dark:active:bg-blue-700 active:scale-95
         `,
         outline: `
-            text-blue-700 border border-blue-700 hover:bg-blue-700 hover:text-white active:bg-blue-900 active:scale-95
+            text-blue-700 dark:text-blue-400 border border-blue-700 dark:border-blue-600 hover:bg-blue-700 dark:hover:bg-blue-600 hover:text-white active:bg-blue-900 dark:active:bg-blue-700 active:scale-95
         `,
         ghost: `
-            text-gray-500 hover:text-gray-900 hover:bg-gray-100 active:bg-blue-900 active:scale-95
+            text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-50 hover:bg-gray-100 dark:hover:bg-gray-700 active:bg-blue-900 dark:active:bg-blue-700 active:scale-95
         `,
         transparent: `
-            text-gray-600 hover:text-blue-600 bg-transparent hover:bg-white/10 active:bg-blue-900 active:scale-95
+            text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 bg-transparent hover:bg-white/10 dark:hover:bg-gray-800/10 active:bg-blue-900 dark:active:bg-blue-700 active:scale-95
         `
     };
 

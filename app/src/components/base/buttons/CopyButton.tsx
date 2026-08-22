@@ -30,7 +30,7 @@ export interface CopyButtonProps {
     className?: string;
 }
 
-export default function CopyButton({
+export const CopyButton = ({
     text,
     targetInputId,
     defaultText = "Copy",
@@ -45,7 +45,7 @@ export default function CopyButton({
     onCopySuccess,
     onCopyError,
     className = '',
-}: CopyButtonProps) {
+}: CopyButtonProps) => {
     const [isCopied, setIsCopied] = useState(false);
     const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 

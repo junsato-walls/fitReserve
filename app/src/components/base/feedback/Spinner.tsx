@@ -16,7 +16,7 @@ export interface SpinnerProps {
     className?: string;
 }
 
-const Spinner = forwardRef<HTMLDivElement, SpinnerProps>(({
+export const Spinner = forwardRef<HTMLDivElement, SpinnerProps>(({
     size = 'md',
     color = 'blue',
     text = 'Loading...',
@@ -104,5 +104,3 @@ const Spinner = forwardRef<HTMLDivElement, SpinnerProps>(({
 });
 
 Spinner.displayName = 'Spinner';
-
-export default Spinner;
