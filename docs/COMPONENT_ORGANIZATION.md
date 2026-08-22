@@ -215,6 +215,8 @@ ARIAでは「**値を選ぶ**」Listboxパターンと「**操作を実行する
 | 3 | `base/forms/CustomCalendar.tsx` と `base/forms/Datepicker.tsx` の用途重複 | **完了**（2026-08-22: 予約フォームで両者を並べて比較し、`Datepicker` を採用。`CustomCalendar` は削除） |
 | 4 | `react-pdf` が参照0件 | **完了**（2026-08-22: 帳票機能で使う想定が無いため依存ごと削除。空の `public/pdf/` も削除） |
 | 5 | `base/` の `next/image` 依存。Next.js以外への持ち出しを想定するなら要検討 | 認識のみ |
+| 6 | ダークモードの未実装・記述の偏り | **完了**（2026-08-22: 全部品に `dark:` を補完し、Cookie方式のテーマ切替と `/dev/components` カタログを実装） |
+| 7 | `Modal` は `open`/`onClose`、`Drawer` は `open`/`onOpenChange` とAPIが不統一 | 未着手 |
 
 ### 既知の制約（対応不要と判断したもの）
 

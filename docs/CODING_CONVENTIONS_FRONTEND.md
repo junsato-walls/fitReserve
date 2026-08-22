@@ -85,6 +85,26 @@ app/src/
 └── lib/               # ユーティリティ
 ```
 
+**テーマ（ライト / ダーク）**:
+
+- 設定値は Cookie（`theme`）に `light` / `dark` / `system` のいずれかで保存する
+- `layout.tsx` がサーバー側でCookieを読み、`<html>` に `dark` クラスを出力する。
+  明示選択時は初回描画からテーマが確定するためちらつきが起きない
+- `system` はサーバーがOSの配色を知り得ないため、`lib/theme.ts` の
+  `THEME_INIT_SCRIPT` が描画前に `prefers-color-scheme` を見て解決する
+- 部品の配色は `dark:` クラスで指定する。対応関係は Flowbite 系に揃える
+  （`text-X-600` → `dark:text-X-400`、`bg-X-700` → `dark:bg-X-600`、
+  `focus:ring-X-300` → `dark:focus:ring-X-800`）
+- 見え方の確認は開発用カタログ `/dev/components` で行う（本番では404）
+- ページの地色は `body`（`--background`）に任せる。画面のルート要素に
+  `bg-gray-50` などを直接指定しない（ダーク時に取り残される）
+- 濃いグレーの文字（`text-gray-900`）のダーク側は `dark:text-white` に揃える
+- `global-error.tsx` は `layout.tsx` を置き換えて描画されるため、
+  `globals.css` の読み込みと `THEME_INIT_SCRIPT` を自前で持つ
+- テーマ切替UI（`ThemeToggle`）はサイドバー内にのみ置く。
+  ログイン・新規登録など未ログインの画面は切替UIを持たず、
+  Cookie未設定の既定値である `system`（OSの配色）に従う
+
 **方針**:
 - **`api/`**: バックエンド通信はすべてServer Actionsに集約する。
   Next.js側にRoute Handler（`app/api/`）を作ってAPIサーバーのように振る舞わせない。
