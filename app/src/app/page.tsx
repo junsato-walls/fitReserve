@@ -7,7 +7,7 @@ export default async function Home() {
     <div className="container mx-auto py-12">
       <div className="text-center mb-12">
         <h1 className="text-4xl font-bold mb-4">fitReserve</h1>
-        <p className="text-xl text-gray-600">制服採寸予約管理システム</p>
+        <p className="text-xl text-gray-600 dark:text-gray-300">制服採寸予約管理システム</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">

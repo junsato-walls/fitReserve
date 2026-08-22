@@ -324,8 +324,8 @@ export const ReservationForm = () => {
                     <Alert type="success" message="予約が完了しました。以下の予約番号を控えてください。" />
                     <div className="text-center space-y-4">
                         <div>
-                            <p className="text-sm text-gray-500">予約番号</p>
-                            <p className="text-3xl font-bold text-blue-600">{reservationNumber}</p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">予約番号</p>
+                            <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">{reservationNumber}</p>
                         </div>
                         <div className="space-y-2 text-sm">
                             <p>予約日時: {selectedSchedule?.schedule_date} {selectedSchedule?.start_time}</p>
@@ -358,7 +358,7 @@ export const ReservationForm = () => {
 
                 {/* 予約対象 */}
                 <section className="space-y-4">
-                    <h3 className="text-base font-semibold text-gray-900">予約対象</h3>
+                    <h3 className="text-base font-semibold text-gray-900 dark:text-white">予約対象</h3>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <Select
@@ -410,10 +410,10 @@ export const ReservationForm = () => {
 
                 {/* 予約日時 */}
                 <section className="space-y-4 border-t pt-6">
-                    <h3 className="text-base font-semibold text-gray-900">予約日時</h3>
+                    <h3 className="text-base font-semibold text-gray-900 dark:text-white">予約日時</h3>
 
                     {!selectedStoreId ? (
-                        <p className="text-sm text-gray-500">
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
                             店舗を選択すると、予約できる日が表示されます。
                         </p>
                     ) : (
@@ -431,13 +431,13 @@ export const ReservationForm = () => {
                             />
 
                             <div>
-                                <p className="block text-sm font-medium text-gray-700 mb-1">
+                                <p className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
                                     時間帯
-                                    <span className="text-red-500 ml-1">*</span>
+                                    <span className="text-red-500 dark:text-red-400 ml-1">*</span>
                                 </p>
 
                                 {!selectedDate ? (
-                                    <p className="text-sm text-gray-500">
+                                    <p className="text-sm text-gray-500 dark:text-gray-400">
                                         予約日を選択すると、空いている時間帯が表示されます。
                                     </p>
                                 ) : dateSchedules.length === 0 ? (
@@ -467,7 +467,7 @@ export const ReservationForm = () => {
 
                 {/* お客様情報 */}
                 <section className="space-y-4 border-t pt-6">
-                    <h3 className="text-base font-semibold text-gray-900">お客様情報</h3>
+                    <h3 className="text-base font-semibold text-gray-900 dark:text-white">お客様情報</h3>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <Input
@@ -553,7 +553,7 @@ export const ReservationForm = () => {
 
                 {/* 採寸情報 */}
                 <section className="space-y-4 border-t pt-6">
-                    <h3 className="text-base font-semibold text-gray-900">採寸情報（任意）</h3>
+                    <h3 className="text-base font-semibold text-gray-900 dark:text-white">採寸情報（任意）</h3>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <Input
@@ -611,24 +611,24 @@ export const ReservationForm = () => {
 
                 {/* 確認して送信 */}
                 <section className="space-y-4 border-t pt-6">
-                    <h3 className="text-base font-semibold text-gray-900">予約内容の確認</h3>
+                    <h3 className="text-base font-semibold text-gray-900 dark:text-white">予約内容の確認</h3>
 
                     <dl className="grid grid-cols-[8rem_1fr] gap-y-2 rounded border p-4 text-sm">
-                        <dt className="text-gray-500">キャンペーン</dt>
+                        <dt className="text-gray-500 dark:text-gray-400">キャンペーン</dt>
                         <dd>{selectedProject?.name ?? "未選択"}</dd>
-                        <dt className="text-gray-500">店舗</dt>
+                        <dt className="text-gray-500 dark:text-gray-400">店舗</dt>
                         <dd>{selectedStore?.name ?? "未選択"}</dd>
-                        <dt className="text-gray-500">学校</dt>
+                        <dt className="text-gray-500 dark:text-gray-400">学校</dt>
                         <dd>{selectedSchool?.name ?? "未選択"}</dd>
-                        <dt className="text-gray-500">予約日時</dt>
+                        <dt className="text-gray-500 dark:text-gray-400">予約日時</dt>
                         <dd>
                             {selectedSchedule
                                 ? `${selectedSchedule.schedule_date} ${selectedSchedule.start_time.substring(0, 5)}`
                                 : "未選択"}
                         </dd>
-                        <dt className="text-gray-500">お名前</dt>
+                        <dt className="text-gray-500 dark:text-gray-400">お名前</dt>
                         <dd>{customerInfo.customer_name || "未入力"}</dd>
-                        <dt className="text-gray-500">電話番号</dt>
+                        <dt className="text-gray-500 dark:text-gray-400">電話番号</dt>
                         <dd>{customerInfo.phone || "未入力"}</dd>
                     </dl>
 

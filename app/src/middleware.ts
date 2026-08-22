@@ -45,6 +45,13 @@ export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // ① API はここでスキップ（API で 401 を返すため）
+  // 開発用のコンポーネントカタログは本番では公開しない。
+  // page 側の notFound() はレイアウトのSuspenseでストリーミングが始まった後に
+  // 評価されるためステータスが200のままになる。ここで確実に404を返す。
+  if (pathname.startsWith("/dev") && process.env.NODE_ENV === "production") {
+    return new NextResponse(null, { status: 404 });
+  }
+
   if (pathname.startsWith("/api")) {
     return NextResponse.next();
   }
@@ -52,7 +59,12 @@ export function middleware(req: NextRequest) {
   const token = req.cookies.get("token")?.value;
 
   // ② ログイン済みで /login に来た場合はスタッフ画面へ送る
-  if (pathname.startsWith("/login") && isLoggedIn(token)) {
+  //
+  // Server Actionは「今表示しているURL」へのPOSTとして届く。
+  // /login 上のアクション（logout など）までリダイレクトすると
+  // アクション本体が実行されないため、画面遷移(GET)だけを対象にする。
+  const isServerAction = req.headers.has("next-action");
+  if (pathname.startsWith("/login") && isLoggedIn(token) && !isServerAction) {
     const staffUrl = req.nextUrl.clone();
     staffUrl.pathname = "/staff";
     return NextResponse.redirect(staffUrl);
@@ -65,6 +77,8 @@ export function middleware(req: NextRequest) {
     pathname.startsWith("/login") ||
     pathname.startsWith("/signup") ||
     pathname.startsWith("/reservations") ||
+    // 開発用のコンポーネントカタログ（本番ビルドでは page 側で404になる）
+    pathname.startsWith("/dev") ||
     pathname === "/404" ||
     pathname === "/500" ||
     pathname.startsWith("/_next") ||
@@ -91,5 +105,10 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  // public/ 配下の静的ファイル（ロゴ画像など）は認証対象から外す。
+  // 除外しないと未ログイン時に /login へリダイレクトされ、
+  // next/image の最適化も元画像を取得できず失敗する。
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|.*\.(?:png|jpe?g|gif|svg|webp|ico|avif|woff2?)$).*)",
+  ],
 };

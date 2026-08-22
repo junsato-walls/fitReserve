@@ -28,6 +28,11 @@ export interface ModalProps {
     // サイズ設定
     size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl' | 'full';
     maxHeight?: string;
+    /**
+     * 画面いっぱいに表示する（余白・角丸・最大幅を無くす）
+     * スマートフォンのメニューなど、画面を占有するUIで使う。size より優先される。
+     */
+    fullScreen?: boolean;
 
     // 動作設定
     closeOnOverlayClick?: boolean;
@@ -63,6 +68,7 @@ export const Modal = forwardRef<HTMLDivElement, ModalProps>(({
     actions = [],
     size = 'md',
     maxHeight = 'max-h-full',
+    fullScreen = false,
     closeOnOverlayClick = true,
     closeOnEscape = true,
     preventBodyScroll = true,
@@ -180,7 +186,7 @@ export const Modal = forwardRef<HTMLDivElement, ModalProps>(({
                 fixed top-0 right-0 left-0 z-${zIndex}
                 flex justify-center items-center 
                 w-full md:inset-0 
-                h-[calc(100%-1rem)] 
+                ${fullScreen ? 'bottom-0 h-full' : 'h-[calc(100%-1rem)]'} 
                 overflow-y-auto overflow-x-hidden
                 bg-black bg-opacity-50
                 ${backdropBlur ? 'backdrop-blur-sm' : ''}
@@ -192,7 +198,9 @@ export const Modal = forwardRef<HTMLDivElement, ModalProps>(({
             role="dialog"
             aria-modal="true"
         >
-            <div className={`relative p-4 w-full ${sizeStyles} ${maxHeight}`}>
+            <div className={fullScreen
+                ? 'relative w-full h-full max-w-full'
+                : `relative p-4 w-full ${sizeStyles} ${maxHeight}`}>
                 {/* モーダルコンテンツ */}
                 <div
                     ref={contentRef}
@@ -201,7 +209,8 @@ export const Modal = forwardRef<HTMLDivElement, ModalProps>(({
                     // （tabIndexに含めない値なのでTab移動の対象にはならない）
                     tabIndex={-1}
                     className={`
-                        relative bg-white rounded-lg shadow-sm dark:bg-gray-700
+                        relative bg-white shadow-sm dark:bg-gray-700
+                        ${fullScreen ? 'flex flex-col h-full rounded-none' : 'rounded-lg'}
                         transform transition-all duration-200
                         ${contentClassName}
                         ${className}
@@ -253,6 +262,7 @@ export const Modal = forwardRef<HTMLDivElement, ModalProps>(({
                     {/* モーダルボディ */}
                     <div className={`
                         p-4 md:p-5 space-y-4
+                        ${fullScreen ? 'flex-1 overflow-y-auto' : ''}
                         ${bodyClassName}
                     `}>
                         {children}

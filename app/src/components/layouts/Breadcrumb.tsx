@@ -41,22 +41,22 @@ export const Breadcrumb = () => {
     if (pathname === "/") return null
 
     return (
-        <div className="flex items-center space-x-2 text-sm text-gray-600 mb-4">
+        <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-300 mb-4">
             {breadcrumbs.map((item, index) => (
                 <div key={item.href} className="flex items-center">
-                    {index > 0 && <ChevronRight className="w-4 h-4 mx-2 text-gray-400" />}
+                    {index > 0 && <ChevronRight className="w-4 h-4 mx-2 text-gray-400 dark:text-gray-500" />}
                     {index === 0 ? (
                         <Link href={item.href}>
-                            <div className="flex items-center hover:text-gray-900">
+                            <div className="flex items-center hover:text-gray-900 dark:hover:text-white">
                                 <Home className="w-4 h-4 mr-1" />
                                 {item.label}
                             </div>
                         </Link>
                     ) : index === breadcrumbs.length - 1 ? (
-                        <span className="font-medium text-gray-900">{item.label}</span>
+                        <span className="font-medium text-gray-900 dark:text-white">{item.label}</span>
                     ) : (
                         <Link href={item.href}>
-                            <span className="hover:text-gray-900">{item.label}</span>
+                            <span className="hover:text-gray-900 dark:hover:text-white">{item.label}</span>
                         </Link>
                     )}
                 </div>

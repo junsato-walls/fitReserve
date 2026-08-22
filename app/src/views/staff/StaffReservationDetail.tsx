@@ -160,27 +160,27 @@ export const StaffReservationDetail = ({
                         <h3 className="font-bold text-lg mb-4">基本情報</h3>
                         <div className="grid grid-cols-2 gap-4 text-sm">
                             <div>
-                                <p className="text-gray-500">予約番号</p>
+                                <p className="text-gray-500 dark:text-gray-400">予約番号</p>
                                 <p className="font-medium">{reservation.reservation_number}</p>
                             </div>
                             <div>
-                                <p className="text-gray-500">予約日時</p>
+                                <p className="text-gray-500 dark:text-gray-400">予約日時</p>
                                 <p className="font-medium">
                                     {reservation.reservation_date}{" "}
                                     {reservation.reservation_time?.substring(0, 5)}
                                 </p>
                             </div>
                             <div>
-                                <p className="text-gray-500">店舗</p>
+                                <p className="text-gray-500 dark:text-gray-400">店舗</p>
                                 <p className="font-medium">{reservation.store_name || "-"}</p>
                             </div>
                             <div>
-                                <p className="text-gray-500">学校</p>
+                                <p className="text-gray-500 dark:text-gray-400">学校</p>
                                 <p className="font-medium">{reservation.school_name || "-"}</p>
                             </div>
                             {reservation.project_name && (
                                 <div className="col-span-2">
-                                    <p className="text-gray-500">プロジェクト</p>
+                                    <p className="text-gray-500 dark:text-gray-400">プロジェクト</p>
                                     <p className="font-medium">{reservation.project_name}</p>
                                 </div>
                             )}
@@ -192,17 +192,17 @@ export const StaffReservationDetail = ({
                         <h3 className="font-bold text-lg mb-4">顧客情報</h3>
                         <div className="grid grid-cols-2 gap-4 text-sm">
                             <div>
-                                <p className="text-gray-500">お名前</p>
+                                <p className="text-gray-500 dark:text-gray-400">お名前</p>
                                 <p className="font-medium">{reservation.customer_name}</p>
                             </div>
                             {reservation.customer_name_kana && (
                                 <div>
-                                    <p className="text-gray-500">お名前（カナ）</p>
+                                    <p className="text-gray-500 dark:text-gray-400">お名前（カナ）</p>
                                     <p className="font-medium">{reservation.customer_name_kana}</p>
                                 </div>
                             )}
                             <div>
-                                <p className="text-gray-500">性別</p>
+                                <p className="text-gray-500 dark:text-gray-400">性別</p>
                                 <p className="font-medium">
                                     {reservation.gender === "male"
                                         ? "男性"
@@ -213,23 +213,23 @@ export const StaffReservationDetail = ({
                             </div>
                             {reservation.grade && (
                                 <div>
-                                    <p className="text-gray-500">学年</p>
+                                    <p className="text-gray-500 dark:text-gray-400">学年</p>
                                     <p className="font-medium">{reservation.grade}</p>
                                 </div>
                             )}
                             <div>
-                                <p className="text-gray-500">電話番号</p>
+                                <p className="text-gray-500 dark:text-gray-400">電話番号</p>
                                 <p className="font-medium">{reservation.phone}</p>
                             </div>
                             {reservation.email && (
                                 <div>
-                                    <p className="text-gray-500">メールアドレス</p>
+                                    <p className="text-gray-500 dark:text-gray-400">メールアドレス</p>
                                     <p className="font-medium">{reservation.email}</p>
                                 </div>
                             )}
                             {reservation.guardian_name && (
                                 <div>
-                                    <p className="text-gray-500">保護者氏名</p>
+                                    <p className="text-gray-500 dark:text-gray-400">保護者氏名</p>
                                     <p className="font-medium">{reservation.guardian_name}</p>
                                 </div>
                             )}
@@ -243,19 +243,19 @@ export const StaffReservationDetail = ({
                             <div className="grid grid-cols-3 gap-4 text-sm">
                                 {reservation.height && (
                                     <div>
-                                        <p className="text-gray-500">身長</p>
+                                        <p className="text-gray-500 dark:text-gray-400">身長</p>
                                         <p className="font-medium">{reservation.height} cm</p>
                                     </div>
                                 )}
                                 {reservation.weight && (
                                     <div>
-                                        <p className="text-gray-500">体重</p>
+                                        <p className="text-gray-500 dark:text-gray-400">体重</p>
                                         <p className="font-medium">{reservation.weight} kg</p>
                                     </div>
                                 )}
                                 {reservation.foot_size && (
                                     <div>
-                                        <p className="text-gray-500">足のサイズ</p>
+                                        <p className="text-gray-500 dark:text-gray-400">足のサイズ</p>
                                         <p className="font-medium">{reservation.foot_size} cm</p>
                                     </div>
                                 )}
@@ -297,7 +297,7 @@ export const StaffReservationDetail = ({
                     </div>
 
                     {/* メタ情報 */}
-                    <div className="text-xs text-gray-500 border-t pt-4 space-y-1">
+                    <div className="text-xs text-gray-500 dark:text-gray-400 border-t pt-4 space-y-1">
                         <p>
                             予約日時: {new Date(reservation.created_at).toLocaleString("ja-JP")}
                         </p>

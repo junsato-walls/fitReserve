@@ -26,11 +26,29 @@ components/layouts/
 ├── StaffLayout.tsx   # 管理画面・スタッフ画面の共通レイアウト（Sidebar + Breadcrumb + 本文）
 ├── Sidebar.tsx       # サイドナビゲーション
 ├── Breadcrumb.tsx    # パンくずリスト
+├── Header.tsx        # 共通ヘッダー（左:企業ロゴ / 右:ユーザーメニュー）
+├── UserMenu.tsx      # Header 右上のアカウントメニュー
+├── MobileNavMenu.tsx # スマホ・タブレット用メニュー（全画面モーダル）
+├── ThemeToggle.tsx   # 表示テーマ（ライト/ダーク/システム）の切替
+├── navLinks.ts       # ナビゲーション定義（Sidebar と MobileNavMenu で共有）
 └── _README.md        # このファイル
 ```
 
+ナビゲーションのリンクは `navLinks.ts` に集約する。
+サイドバーとスマホ用メニューの2箇所に同じ定義を書くと追加漏れが起きるため。
+
+ヘッダー右側の操作は画面幅で入れ替える。
+
+| 幅 | 右側に出るもの | 中身 |
+|---|---|---|
+| `lg` 以上 | `UserMenu`（アバター） | ユーザー情報 / 設定 / テーマ / ログアウト |
+| `lg` 未満 | ハンバーガーボタン | 上記に加えてスタッフ機能・管理者機能の一覧 |
+
+`lg` 未満ではアバターを出さないため、アカウント操作も `MobileNavMenu` 側に含める。
+
 `Sidebar` と `Breadcrumb` は `StaffLayout` の内部部品であり、
 画面から直接使うことは想定していない。
+`UserMenu` も同様に `Header` の内部部品として扱う。
 
 ## 使い方
 

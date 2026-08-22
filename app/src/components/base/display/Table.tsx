@@ -278,15 +278,20 @@ const TableComponent = <T = unknown,>(
     ${headerClassName}
   `;
 
-    // 行のクラス
-    const getRowClasses = (index: number) => {
-        const baseClasses = "border-b dark:border-gray-700 border-gray-200";
-        const bgClasses = striped && index % 2 === 1
+    /** 行の背景色。sticky なアクション列にも同じ色を与える必要があるため切り出す */
+    const getRowBgClasses = (index: number) =>
+        striped && index % 2 === 1
             ? "bg-gray-50 dark:bg-gray-900"
             : "bg-white dark:bg-gray-800";
+
+
+    // 行のクラス
+    const getRowClasses = (index: number) => {
+        // group: sticky なアクション列が行のホバー状態を参照するために必要
+        const baseClasses = "group border-b dark:border-gray-700 border-gray-200";
         const hoverClasses = hover ? "hover:bg-gray-50 dark:hover:bg-gray-600" : "";
 
-        return `${baseClasses} ${bgClasses} ${hoverClasses}`;
+        return `${baseClasses} ${getRowBgClasses(index)} ${hoverClasses}`;
     };
 
     // セルのクラス（compactを実装）
@@ -318,11 +323,15 @@ const TableComponent = <T = unknown,>(
     };
 
     // アクション列のクラス（compactを実装）
-    const getActionCellClasses = () => {
-        // 折り返しを防ぎつつ、横スクロール時も操作列が常に見えるよう右端に固定する
-        // （背景色を指定しないと下の行が透けるため bg も併せて指定）
-        const base = "sticky right-0 z-10 flex items-center whitespace-nowrap bg-white dark:bg-gray-800";
-        return compact ? `${base} px-3 py-2` : `${base} px-6 py-4`;
+    const getActionCellClasses = (index: number) => {
+        // 折り返しを防ぎつつ、横スクロール時も操作列が常に見えるよう右端に固定する。
+        // sticky なセルは自前の背景を持たないと下の行が透けるため bg を指定するが、
+        // その背景が行の hover 色を覆ってしまう。行の状態に追従させる必要がある。
+        const base = "sticky right-0 z-10 flex items-center whitespace-nowrap";
+        // クラス名は文字列として書き切る（動的に組み立てるとTailwindが検出できない）
+        const hoverBg = hover ? "group-hover:bg-gray-50 dark:group-hover:bg-gray-600" : "";
+        const padding = compact ? "px-3 py-2" : "px-6 py-4";
+        return `${base} ${getRowBgClasses(index)} ${hoverBg} ${padding}`;
     };
 
     return (
@@ -494,7 +503,7 @@ const TableComponent = <T = unknown,>(
 
                                     {/* アクション */}
                                     {actions.length > 0 && (
-                                        <td className={getActionCellClasses()}>
+                                        <td className={getActionCellClasses(index)}>
                                             {actions.map((action) => (
                                                 action.href ? (
                                                     <a

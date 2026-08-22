@@ -129,13 +129,13 @@ export const StaffDashboard = () => {
                 </Card>
 
                 <Card title="未確認">
-                    <div className="text-3xl font-bold text-yellow-600">
+                    <div className="text-3xl font-bold text-yellow-600 dark:text-yellow-400">
                         {loading ? "-" : stats.pendingCount}
                     </div>
                 </Card>
 
                 <Card title="確定済み">
-                    <div className="text-3xl font-bold text-blue-600">
+                    <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">
                         {loading ? "-" : stats.confirmedCount}
                     </div>
                 </Card>

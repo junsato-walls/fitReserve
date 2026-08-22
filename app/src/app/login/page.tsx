@@ -36,7 +36,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+    <div className="min-h-screen flex items-center justify-center">
       <Card className="w-full max-w-md" title="スタッフログイン" titleSize="lg" titleAlign="center">
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input
@@ -65,9 +65,9 @@ export default function LoginPage() {
 
           <Button type="submit" className="w-full" disabled={loading} label="ログイン" loadingLabel="ログイン中..." isLoading={loading} />
 
-          <p className="text-center text-sm text-gray-600 mt-4">
+          <p className="text-center text-sm text-gray-600 dark:text-gray-300 mt-4">
             アカウントをお持ちでないですか？{" "}
-            <Link href="/signup" className="text-blue-600 hover:underline">
+            <Link href="/signup" className="text-blue-600 dark:text-blue-400 hover:underline">
               新規登録
             </Link>
           </p>

@@ -63,7 +63,7 @@ export default function SignupPage() {
     }
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="min-h-screen flex items-center justify-center">
             <Card className="w-full max-w-md" title="アカウント作成" titleSize="lg" titleAlign="center">
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <Input
@@ -114,9 +114,9 @@ export default function SignupPage() {
 
                     <Button type="submit" className="w-full" disabled={isLoading} label="アカウント作成" loadingLabel="作成中..." isLoading={isLoading} />
 
-                    <p className="text-center text-sm text-gray-600 mt-4">
+                    <p className="text-center text-sm text-gray-600 dark:text-gray-300 mt-4">
                         既にアカウントをお持ちですか？{" "}
-                        <Link href="/login" className="text-blue-600 hover:underline">
+                        <Link href="/login" className="text-blue-600 dark:text-blue-400 hover:underline">
                             ログイン
                         </Link>
                     </p>

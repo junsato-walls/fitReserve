@@ -89,7 +89,7 @@ export const AdminDashboard = () => {
         <div className="space-y-6">
             <div>
                 <h1 className="text-2xl font-bold">管理者ダッシュボード</h1>
-                <p className="text-sm text-gray-500 mt-1">
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                     マスタデータの登録状況と各管理画面へのリンク
                 </p>
             </div>
@@ -106,13 +106,13 @@ export const AdminDashboard = () => {
                             clickable
                             title={label}
                             titleSize="sm"
-                            titleIcon={<Icon className="h-5 w-5 text-gray-500" aria-hidden="true" />}
+                            titleIcon={<Icon className="h-5 w-5 text-gray-500 dark:text-gray-400" aria-hidden="true" />}
                         >
                             <p className="text-3xl font-bold">
                                 {loading ? "-" : (summary?.[key] ?? 0)}
-                                <span className="ml-1 text-sm font-normal text-gray-500">件</span>
+                                <span className="ml-1 text-sm font-normal text-gray-500 dark:text-gray-400">件</span>
                             </p>
-                            <p className="mt-2 text-sm text-gray-500">{description}</p>
+                            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">{description}</p>
                         </Card>
                     </Link>
                 ))}
