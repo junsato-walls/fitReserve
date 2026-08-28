@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List, Annotated
 from system.db import get_db
-from system.models import Stores
+from system.models import Stores, StoreSchools
 from schemas.stores import StoreCreate, StoreUpdate, StoreResponse
 from schemas.custom.auth import DecodedToken
 from system.auth import require_admin
@@ -24,6 +24,23 @@ def jst() -> datetime:
     return datetime.now(ZoneInfo("Asia/Tokyo"))
 
 
+def _to_response(store: Stores, db: Session) -> StoreResponse:
+    """店舗に取り扱い学校IDを添えてレスポンスを組み立てる"""
+    store_dict = StoreResponse.model_validate(store).model_dump()
+    store_dict["school_ids"] = [
+        ss.school_id
+        for ss in db.query(StoreSchools).filter(StoreSchools.store_id == store.id).all()
+    ]
+    return StoreResponse(**store_dict)
+
+
+def _replace_school_ids(store_id: int, school_ids: List[int], db: Session) -> None:
+    """取り扱い学校を指定された内容で置き換える"""
+    db.query(StoreSchools).filter(StoreSchools.store_id == store_id).delete()
+    for school_id in school_ids:
+        db.add(StoreSchools(store_id=store_id, school_id=school_id))
+
+
 @router.get("/stores", response_model=List[StoreResponse])
 def get_stores(
     login_user: UserDependency,
@@ -37,7 +54,7 @@ def get_stores(
     if not include_deleted:
         query = query.filter(Stores.deleted_at.is_(None))
     stores = query.offset(skip).limit(limit).all()
-    return stores
+    return [_to_response(store, db) for store in stores]
 
 
 @router.get("/stores/{store_id}", response_model=StoreResponse)
@@ -52,7 +69,7 @@ def get_store(store_id: int, login_user: UserDependency, db: Session = Depends(g
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="店舗が見つかりません"
         )
-    return store
+    return _to_response(store, db)
 
 
 @router.post(
@@ -74,11 +91,16 @@ def create_store(
             detail="この店舗コードは既に使用されています",
         )
 
-    db_store = Stores(**store.model_dump())
+    db_store = Stores(**store.model_dump(exclude={"school_ids"}))
     db.add(db_store)
+    db.flush()  # school_ids の登録に店舗IDが必要なため、先にIDを確定させる
+
+    if store.school_ids:
+        _replace_school_ids(db_store.id, store.school_ids, db)
+
     db.commit()
     db.refresh(db_store)
-    return db_store
+    return _to_response(db_store, db)
 
 
 @router.put("/stores/{store_id}", response_model=StoreResponse)
@@ -117,13 +139,17 @@ def update_store(
             )
 
     # 更新処理
-    update_data = store.model_dump(exclude_unset=True)
+    update_data = store.model_dump(exclude_unset=True, exclude={"school_ids"})
     for field, value in update_data.items():
         setattr(db_store, field, value)
 
+    # 取り扱い学校の更新（未指定なら変更しない）
+    if store.school_ids is not None:
+        _replace_school_ids(store_id, store.school_ids, db)
+
     db.commit()
     db.refresh(db_store)
-    return db_store
+    return _to_response(db_store, db)
 
 
 @router.delete("/stores/{store_id}", status_code=status.HTTP_204_NO_CONTENT)

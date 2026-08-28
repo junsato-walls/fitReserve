@@ -11,12 +11,8 @@ export default async function Home() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
-        <Card title="採寸予約" description="制服の採寸予約を受け付けています">
-          <Link href="/reservations/new">
-            <Button className="w-full" size="lg" label="予約する" />
-          </Link>
-        </Card>
-
+        {/* 採寸予約は各店舗の予約URL（/[company_slug]/[project_id]/[store_id]）
+            から行うため、ここには導線を置かない。URLはホームページに掲載する。 */}
         <Card title="予約確認" description="予約番号から予約内容を確認できます">
           <Link href="/reservations/check">
             <Button variant="outline" className="w-full" size="lg" label="予約を確認" />

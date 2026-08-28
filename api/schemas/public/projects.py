@@ -5,17 +5,26 @@ from pydantic import BaseModel
 from datetime import date
 
 
+class AcceptingDivision(BaseModel):
+    """受付中の学校区分と、その受付期間"""
+
+    school_divisions_id: int
+    name: str
+    start_date: date
+    end_date: date
+
+
 class ProjectPublic(BaseModel):
-    """公開API用プロジェクト情報（顧客向け）"""
+    """公開API用プロジェクト情報（顧客向け）
+
+    予約受付期間は学校区分ごとに異なるため、プロジェクト自体は期間を持たない。
+    accepting_divisions には「本日受付中の区分」だけが入る。
+    """
 
     id: int
     project_code: str
     name: str
     description: str | None = None
-    start_date: date
-    end_date: date
     reservation_interval: int
-    is_enabled: bool
-
-    class Config:
-        from_attributes = True
+    company_slug: str
+    accepting_divisions: list[AcceptingDivision] = []

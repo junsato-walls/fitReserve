@@ -2,7 +2,7 @@
 """店舗マスタのスキーマ定義"""
 
 from pydantic import BaseModel, Field, ConfigDict
-from typing import Optional
+from typing import List, Optional
 from datetime import datetime, time
 
 
@@ -27,6 +27,10 @@ class StoreBase(BaseModel):
 
 class StoreCreate(StoreBase):
     """店舗新規作成用"""
+
+    school_ids: Optional[List[int]] = Field(
+        None, description="取り扱う学校IDリスト"
+    )
 
     model_config = ConfigDict(
         json_schema_extra={
@@ -66,6 +70,10 @@ class StoreUpdate(BaseModel):
     business_hours_end: Optional[time] = None
     regular_holiday: Optional[str] = Field(None, max_length=100)
     description: Optional[str] = Field(None, max_length=500)
+    school_ids: Optional[List[int]] = Field(
+        None, description="取り扱う学校IDリスト（指定した内容で置き換える）"
+    )
+
     model_config = ConfigDict(
         json_schema_extra={
             "examples": [
@@ -87,5 +95,8 @@ class StoreResponse(StoreBase):
     deleted_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
+    school_ids: List[int] = Field(
+        default_factory=list, description="取り扱う学校IDリスト"
+    )
 
     model_config = ConfigDict(from_attributes=True)

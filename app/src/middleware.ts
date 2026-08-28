@@ -87,14 +87,28 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // ④ 認証チェック
+  // ④ 顧客向けの予約URL（/[company_slug]/[project_id]/[store_id]）は認証不要
+  //
+  // ホームページに掲載する公開URLのため、ログインを要求してはいけない。
+  // 会社スラッグは任意の文字列なので、パスの形（3階層で後ろ2つが数値）で判定する。
+  // 組み合わせが正しいかはAPI側が検証する。
+  const segments = pathname.split("/").filter(Boolean);
+  if (
+    segments.length === 3 &&
+    /^\d+$/.test(segments[1]) &&
+    /^\d+$/.test(segments[2])
+  ) {
+    return NextResponse.next();
+  }
+
+  // ⑤ 認証チェック
   if (!isLoggedIn(token)) {
     const loginUrl = req.nextUrl.clone();
     loginUrl.pathname = "/login";
     return NextResponse.redirect(loginUrl);
   }
 
-  // ⑤ /admin配下は管理者のみ（SPECIFICATION.mdのロール定義に準拠）
+  // ⑥ /admin配下は管理者のみ（SPECIFICATION.mdのロール定義に準拠）
   if (pathname.startsWith("/admin") && decodeToken(token!)?.role !== "admin") {
     const staffUrl = req.nextUrl.clone();
     staffUrl.pathname = "/staff";

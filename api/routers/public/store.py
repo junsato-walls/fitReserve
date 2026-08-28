@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """店舗取得API（公開・認証不要）"""
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from system.db import get_db
 from system.models import Stores, ProjectStores
@@ -48,3 +48,25 @@ def get_stores(
 
     stores = query.order_by(Stores.name).all()
     return stores
+
+
+@router.get("/stores/{store_id}", response_model=StorePublic)
+def get_store(store_id: int, db: Session = Depends(get_db)):
+    """店舗詳細を取得（顧客向け）
+
+    予約URLに店舗IDが含まれるため、フォームの見出しに店舗名を出すのに使う。
+    """
+    store = (
+        db.query(Stores)
+        .filter(
+            Stores.id == store_id,
+            Stores.is_enabled.is_(True),
+            Stores.deleted_at.is_(None),
+        )
+        .first()
+    )
+    if not store:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="店舗が見つかりません"
+        )
+    return store

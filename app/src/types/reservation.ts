@@ -4,15 +4,23 @@
 // 管理者向け(/admin/*)は項目が異なるため types/admin.ts、
 // スタッフ向けスケジュール(/schedules)は types/schedule.ts を使うこと。
 
+/** 本日受付中の学校区分と、その受付期間 */
+export interface AcceptingDivision {
+    school_divisions_id: number
+    name: string
+    start_date: string
+    end_date: string
+}
+
 export interface ProjectPublic {
     id: number
     project_code: string
     name: string
     description: string | null
-    start_date: string
-    end_date: string
     reservation_interval: number
-    is_enabled: boolean
+    company_slug: string
+    /** 本日受付中の区分のみ。空配列なら受付期間外 */
+    accepting_divisions: AcceptingDivision[]
 }
 
 export interface StorePublic {
@@ -34,7 +42,7 @@ export interface SchoolPublic {
     id: number
     school_code: string
     name: string
-    school_type: string
+    school_divisions_id: number
     postal_code: string | null
     address: string | null
 }

@@ -63,12 +63,6 @@ export default function NotFound() {
                     </p>
                     <div className="space-y-2">
                         <Link
-                            href="/reservations/new"
-                            className="block text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm hover:underline"
-                        >
-                            採寸予約の申し込み
-                        </Link>
-                        <Link
                             href="/reservations/check"
                             className="block text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm hover:underline"
                         >

@@ -2,10 +2,10 @@
 
 import {
     createReservation,
-    getProjects,
+    getReservationProject,
     getSchedules,
     getSchools,
-    getStores,
+    getStore,
 } from "@/api/Reservation"
 import { Button } from "@/components/base/buttons/Button";
 import { Card } from "@/components/base/display/Card";
@@ -23,46 +23,57 @@ import type {
     SchoolPublic,
     StorePublic,
 } from "@/types/reservation"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useRouter } from "next/navigation"
 import { useEffect, useMemo, useRef, useState } from "react"
 
 /** スケジュールを先読みする月数（カレンダーで移動できる範囲になる） */
 const SCHEDULE_FETCH_MONTHS = 6
 
-export const ReservationForm = () => {
+interface ReservationFormProps {
+    /** 予約URL /[company_slug]/[project_id]/[store_id] の会社スラッグ */
+    companySlug: string
+    projectId: number
+    storeId: number
+}
+
+/**
+ * 採寸予約フォーム
+ *
+ * プロジェクトと店舗はURLで決まるため、お客様が選ぶのは
+ * 「学校 → 予約日時 → お客様情報」の3つだけになる。
+ *
+ * 選べる学校は次の2つを満たすものに限られる。
+ *   - その店舗が制服を取り扱っている（store_schools）
+ *   - 学校の区分が本日受付中である（project_school_divisions）
+ */
+export const ReservationForm = ({
+    companySlug,
+    projectId,
+    storeId,
+}: ReservationFormProps) => {
     const router = useRouter()
-    const searchParams = useSearchParams()
 
-    // キャンペーンURL（例: /reservations/new?id=1&store=2）で
-    // プロジェクトと店舗を事前指定できるようにする
-    const projectIdParam = searchParams.get("id")
-    const storeIdParam = searchParams.get("store")
-
-    const [loading, setLoading] = useState(false)
+    const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
+    /** URL自体が不正な場合のエラー。フォームを出さずにこれだけを表示する */
+    const [fatalError, setFatalError] = useState<string | null>(null)
     const errorRef = useRef<HTMLDivElement>(null)
 
-    // URLで指定された項目は選択済みとして扱い、変更させない
-    const [lockedProject, setLockedProject] = useState(false)
-    const [lockedStore, setLockedStore] = useState(false)
-
-    // マスタデータ
-    const [projects, setProjects] = useState<ProjectPublic[]>([])
-    const [stores, setStores] = useState<StorePublic[]>([])
+    // URLから確定するデータ
+    const [project, setProject] = useState<ProjectPublic | null>(null)
+    const [store, setStore] = useState<StorePublic | null>(null)
     const [schools, setSchools] = useState<SchoolPublic[]>([])
     const [schedules, setSchedules] = useState<SchedulePublic[]>([])
 
     // 選択された値
-    const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null)
-    const [selectedStoreId, setSelectedStoreId] = useState<number | null>(null)
     const [selectedSchoolId, setSelectedSchoolId] = useState<number | null>(null)
     const [selectedDate, setSelectedDate] = useState<Date | undefined>()
     const [selectedScheduleId, setSelectedScheduleId] = useState<number | null>(null)
 
     // 顧客情報
     const [customerInfo, setCustomerInfo] = useState<ReservationCreate>({
-        project_id: null,
-        store_id: 0,
+        project_id: projectId,
+        store_id: storeId,
         school_id: 0,
         reservation_date: "",
         reservation_time: "",
@@ -82,80 +93,12 @@ export const ReservationForm = () => {
     // 予約完了後の予約番号（設定されたら完了画面を表示する）
     const [reservationNumber, setReservationNumber] = useState<string | null>(null)
 
-    // プロジェクト一覧を取得
-    useEffect(() => {
-        const fetchProjects = async () => {
-            setLoading(true)
-            const result = await getProjects()
-            if (result.success && result.data) {
-                setProjects(result.data)
-
-                // URLで指定されたプロジェクトが受付中なら選択済みにする
-                const paramId = Number(projectIdParam)
-                if (paramId && result.data.some((p) => p.id === paramId)) {
-                    setSelectedProjectId(paramId)
-                    setLockedProject(true)
-                }
-            } else {
-                setError(result.error || "プロジェクトの取得に失敗しました")
-            }
-            setLoading(false)
-        }
-        fetchProjects()
-        // URLパラメータは初期表示時のみ反映する
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [])
-
-    // プロジェクト選択時に店舗・学校を取得
-    useEffect(() => {
-        if (!selectedProjectId) {
-            setStores([])
-            setSchools([])
-            return
-        }
-
-        const fetchData = async () => {
-            setLoading(true)
-            const [storesResult, schoolsResult] = await Promise.all([
-                getStores(selectedProjectId),
-                getSchools(selectedProjectId),
-            ])
-
-            if (storesResult.success && storesResult.data) {
-                setStores(storesResult.data)
-
-                // URLで指定された店舗が対象に含まれていれば選択済みにする
-                const paramStoreId = Number(storeIdParam)
-                if (
-                    paramStoreId &&
-                    !lockedStore &&
-                    storesResult.data.some((s) => s.id === paramStoreId)
-                ) {
-                    setSelectedStoreId(paramStoreId)
-                    setLockedStore(true)
-                }
-            }
-            if (schoolsResult.success && schoolsResult.data) {
-                setSchools(schoolsResult.data)
-            }
-            setLoading(false)
-        }
-        fetchData()
-        // URLパラメータは初期表示時のみ反映する
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedProjectId])
-
-    // 店舗が決まった時点で、受付期間ぶんのスケジュールをまとめて取得する
+    // URLの妥当性検証と、必要なデータの取得
     //
-    // 表示月ごとに取り直す作りにすると「次の月に空きがあるか」が分からず、
-    // 空き枠の無い月へ移動できてしまうため、先に全期間を取得しておく。
+    // プロジェクト・店舗・学校・空き枠は互いに依存しないため並列で取得する。
+    // 会社とプロジェクトと店舗の組み合わせが不正な場合はAPI側が404を返す。
     useEffect(() => {
-        if (!selectedStoreId) {
-            setSchedules([])
-            return
-        }
-
-        const fetchSchedules = async () => {
+        const fetchAll = async () => {
             setLoading(true)
 
             const today = new Date()
@@ -165,17 +108,40 @@ export const ReservationForm = () => {
                 0
             )
 
-            const result = await getSchedules(
-                selectedStoreId,
-                formatDateForApi(today),
-                formatDateForApi(until)
-            )
+            const [projectResult, storeResult, schoolsResult, schedulesResult] =
+                await Promise.all([
+                    getReservationProject(companySlug, projectId, storeId),
+                    getStore(storeId),
+                    getSchools(storeId, projectId),
+                    getSchedules(
+                        storeId,
+                        formatDateForApi(today),
+                        formatDateForApi(until)
+                    ),
+                ])
 
-            setSchedules(result.success && result.data ? result.data : [])
             setLoading(false)
+
+            if (!projectResult.success || !projectResult.data) {
+                setFatalError(
+                    projectResult.error || "この予約URLは無効です。URLをご確認ください。"
+                )
+                return
+            }
+            setProject(projectResult.data)
+
+            if (storeResult.success && storeResult.data) setStore(storeResult.data)
+            if (schoolsResult.success && schoolsResult.data) {
+                setSchools(schoolsResult.data)
+            }
+            setSchedules(
+                schedulesResult.success && schedulesResult.data
+                    ? schedulesResult.data
+                    : []
+            )
         }
-        fetchSchedules()
-    }, [selectedStoreId])
+        fetchAll()
+    }, [companySlug, projectId, storeId])
 
     // エラーは画面上部に出るが、送信ボタンは最下部にある。
     // そのままだとエラーに気づけないため、表示位置までスクロールする。
@@ -188,8 +154,6 @@ export const ReservationForm = () => {
     useEffect(() => {
         setError(null)
     }, [
-        selectedProjectId,
-        selectedStoreId,
         selectedSchoolId,
         selectedScheduleId,
         // どの項目を直してもエラーを消したいので、顧客情報はまとめて監視する
@@ -214,49 +178,52 @@ export const ReservationForm = () => {
         [availableDates]
     )
 
-    const selectedProject = projects.find((p) => p.id === selectedProjectId)
-    const selectedStore = stores.find((s) => s.id === selectedStoreId)
     const selectedSchool = schools.find((s) => s.id === selectedSchoolId)
     const selectedSchedule = schedules.find((s) => s.id === selectedScheduleId)
+
+    /** 選択中の学校の区分に対応する受付期間 */
+    const acceptingPeriod = useMemo(() => {
+        if (!project || !selectedSchool) return undefined
+        return project.accepting_divisions.find(
+            (d) => d.school_divisions_id === selectedSchool.school_divisions_id
+        )
+    }, [project, selectedSchool])
+
+    /** 区分IDから区分名を引く（学校の選択肢に添える） */
+    const divisionName = (divisionId: number) =>
+        project?.accepting_divisions.find((d) => d.school_divisions_id === divisionId)
+            ?.name ?? ""
 
     /**
      * 予約できる日付の範囲
      *
-     * SPECIFICATION.md BL-2「プロジェクトの開始日〜終了日の範囲内のみ予約可能」
-     * かつ「過去の日時は予約不可」に従う。
+     * 受付期間は学校区分ごとに異なるため、選択された学校の区分の期間を使う。
+     * SPECIFICATION.md BL-2「受付期間の範囲内のみ予約可能」かつ
+     * 「過去の日時は予約不可」に従う。
      */
     const reservableFrom = useMemo(() => {
         const today = new Date()
-        if (!selectedProject) return today
-        const [year, month, day] = selectedProject.start_date.split("-").map(Number)
-        const projectStart = new Date(year, month - 1, day)
+        if (!acceptingPeriod) return today
+        const [year, month, day] = acceptingPeriod.start_date.split("-").map(Number)
+        const periodStart = new Date(year, month - 1, day)
         // 受付開始が過去なら今日から
-        return projectStart > today ? projectStart : today
-    }, [selectedProject])
+        return periodStart > today ? periodStart : today
+    }, [acceptingPeriod])
 
     const reservableUntil = useMemo(() => {
-        if (!selectedProject) return undefined
-        const [year, month, day] = selectedProject.end_date.split("-").map(Number)
+        if (!acceptingPeriod) return undefined
+        const [year, month, day] = acceptingPeriod.end_date.split("-").map(Number)
         return new Date(year, month - 1, day)
-    }, [selectedProject])
+    }, [acceptingPeriod])
 
     /** 選択された日付の時間帯 */
     const dateSchedules = selectedDate
         ? schedules.filter((s) => s.schedule_date === formatDateForApi(selectedDate))
         : []
 
-    /** キャンペーンを変えると対象の店舗・学校が変わるため、以降の選択を解除する */
-    const handleProjectChange = (value: string) => {
-        setSelectedProjectId(Number(value))
-        setSelectedStoreId(null)
-        setSelectedSchoolId(null)
-        setSelectedDate(undefined)
-        setSelectedScheduleId(null)
-    }
-
-    /** 店舗を変えると空き状況が変わるため、日時の選択を解除する */
-    const handleStoreChange = (value: string) => {
-        setSelectedStoreId(Number(value))
+    /** 学校を変えると受付期間が変わるため、日時の選択を解除する */
+    const handleSchoolChange = (value: string) => {
+        setSelectedSchoolId(Number(value))
         setSelectedDate(undefined)
         setSelectedScheduleId(null)
     }
@@ -274,8 +241,6 @@ export const ReservationForm = () => {
 
     const handleSubmit = async () => {
         // 1画面に全項目が並ぶため、未入力があれば何が足りないかを明示する
-        if (!selectedProjectId) return setError("キャンペーンを選択してください")
-        if (!selectedStoreId) return setError("店舗を選択してください")
         if (!selectedSchoolId) return setError("学校を選択してください")
         if (!selectedSchedule) return setError("予約日時を選択してください")
 
@@ -299,8 +264,8 @@ export const ReservationForm = () => {
 
         const data: ReservationCreate = {
             ...customerInfo,
-            project_id: selectedProjectId,
-            store_id: selectedStoreId,
+            project_id: projectId,
+            store_id: storeId,
             school_id: selectedSchoolId,
             reservation_date: selectedSchedule.schedule_date,
             reservation_time: selectedSchedule.start_time,
@@ -329,7 +294,7 @@ export const ReservationForm = () => {
                         </div>
                         <div className="space-y-2 text-sm">
                             <p>予約日時: {selectedSchedule?.schedule_date} {selectedSchedule?.start_time}</p>
-                            <p>店舗: {selectedStore?.name}</p>
+                            <p>店舗: {store?.name}</p>
                             <p>学校: {selectedSchool?.name}</p>
                         </div>
                     </div>
@@ -344,77 +309,94 @@ export const ReservationForm = () => {
         )
     }
 
+    // ------------------------------------------------------------ URLが不正
+    if (fatalError) {
+        return (
+            <Card className="max-w-2xl mx-auto" title="予約ページを表示できません">
+                <div className="space-y-4">
+                    <Alert type="error" message={fatalError} />
+                    <p className="text-sm text-gray-600 dark:text-gray-300">
+                        お手数ですが、掲載元のホームページからもう一度お進みください。
+                    </p>
+                </div>
+            </Card>
+        )
+    }
+
+    // 受付中の区分が1つも無ければ、選べる日も学校も存在しない
+    const isAccepting = (project?.accepting_divisions.length ?? 0) > 0
+
     // ---------------------------------------------------------------- 入力画面
     return (
         <Card
             className="max-w-4xl mx-auto"
-            title="採寸予約フォーム"
-            description="必要事項をご入力のうえ、最後に「予約を確定する」を押してください。"
+            title={project ? `${project.name}｜採寸予約` : "採寸予約フォーム"}
+            description={
+                store
+                    ? `${store.name}での採寸予約です。必要事項をご入力のうえ、最後に「予約を確定する」を押してください。`
+                    : "必要事項をご入力のうえ、最後に「予約を確定する」を押してください。"
+            }
         >
             <div className="space-y-8">
                 <div ref={errorRef}>
                     {error && <Alert type="error" message={error} />}
                 </div>
 
+                {!loading && !isAccepting && (
+                    <Alert
+                        type="warning"
+                        message="現在は予約受付期間外です。受付開始までお待ちください。"
+                    />
+                )}
+
                 {/* 予約対象 */}
                 <section className="space-y-4">
                     <h3 className="text-base font-semibold text-gray-900 dark:text-white">予約対象</h3>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <Select
-                            label="キャンペーン"
-                            required
-                            fullWidth
-                            placeholder="キャンペーンを選択"
-                            disabled={lockedProject}
-                            value={selectedProjectId?.toString() || ""}
-                            onChange={handleProjectChange}
-                            options={projects.map((project) => ({
-                                value: project.id.toString(),
-                                label: project.name,
-                            }))}
-                            helperText={selectedProject?.description || undefined}
-                        />
+                    {/* プロジェクトと店舗はURLで確定しているため、変更させない */}
+                    <dl className="grid grid-cols-[8rem_1fr] gap-y-2 rounded border p-4 text-sm dark:border-gray-700">
+                        <dt className="text-gray-500 dark:text-gray-400">キャンペーン</dt>
+                        <dd>{project?.name ?? "-"}</dd>
+                        <dt className="text-gray-500 dark:text-gray-400">店舗</dt>
+                        <dd>{store?.name ?? "-"}</dd>
+                    </dl>
 
-                        <Select
-                            label="店舗"
-                            required
-                            fullWidth
-                            placeholder="店舗を選択"
-                            disabled={lockedStore || !selectedProjectId}
-                            value={selectedStoreId?.toString() || ""}
-                            onChange={handleStoreChange}
-                            options={stores.map((store) => ({
-                                value: store.id.toString(),
-                                label: `${store.name} - ${store.address}`,
-                            }))}
-                            helperText={!selectedProjectId ? "先にキャンペーンを選択してください" : undefined}
-                        />
+                    <Select
+                        label="学校"
+                        required
+                        fullWidth
+                        placeholder="学校を選択"
+                        disabled={!isAccepting || schools.length === 0}
+                        value={selectedSchoolId?.toString() || ""}
+                        onChange={handleSchoolChange}
+                        options={schools.map((school) => ({
+                            value: school.id.toString(),
+                            label: divisionName(school.school_divisions_id)
+                                ? `${school.name}（${divisionName(school.school_divisions_id)}）`
+                                : school.name,
+                        }))}
+                        helperText={
+                            isAccepting && schools.length === 0
+                                ? "この店舗で予約できる学校がありません。"
+                                : "この店舗で制服を取り扱っている学校のみ表示されます。"
+                        }
+                    />
 
-                        <Select
-                            label="学校"
-                            required
-                            fullWidth
-                            placeholder="学校を選択"
-                            disabled={!selectedProjectId}
-                            value={selectedSchoolId?.toString() || ""}
-                            onChange={(value) => setSelectedSchoolId(Number(value))}
-                            options={schools.map((school) => ({
-                                value: school.id.toString(),
-                                label: `${school.name} (${school.school_type})`,
-                            }))}
-                            helperText={!selectedProjectId ? "先にキャンペーンを選択してください" : undefined}
-                        />
-                    </div>
+                    {acceptingPeriod && (
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                            {acceptingPeriod.name}の受付期間：
+                            {acceptingPeriod.start_date} 〜 {acceptingPeriod.end_date}
+                        </p>
+                    )}
                 </section>
 
                 {/* 予約日時 */}
                 <section className="space-y-4 border-t pt-6">
                     <h3 className="text-base font-semibold text-gray-900 dark:text-white">予約日時</h3>
 
-                    {!selectedStoreId ? (
+                    {!selectedSchoolId ? (
                         <p className="text-sm text-gray-500 dark:text-gray-400">
-                            店舗を選択すると、予約できる日が表示されます。
+                            学校を選択すると、予約できる日が表示されます。
                         </p>
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -615,9 +597,9 @@ export const ReservationForm = () => {
 
                     <dl className="grid grid-cols-[8rem_1fr] gap-y-2 rounded border p-4 text-sm">
                         <dt className="text-gray-500 dark:text-gray-400">キャンペーン</dt>
-                        <dd>{selectedProject?.name ?? "未選択"}</dd>
+                        <dd>{project?.name ?? "-"}</dd>
                         <dt className="text-gray-500 dark:text-gray-400">店舗</dt>
-                        <dd>{selectedStore?.name ?? "未選択"}</dd>
+                        <dd>{store?.name ?? "-"}</dd>
                         <dt className="text-gray-500 dark:text-gray-400">学校</dt>
                         <dd>{selectedSchool?.name ?? "未選択"}</dd>
                         <dt className="text-gray-500 dark:text-gray-400">予約日時</dt>
@@ -634,7 +616,7 @@ export const ReservationForm = () => {
 
                     <Button
                         onClick={handleSubmit}
-                        disabled={loading}
+                        disabled={loading || !isAccepting}
                         label="予約を確定する"
                         loadingLabel="予約中..."
                         isLoading={loading}

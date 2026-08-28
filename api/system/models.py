@@ -61,6 +61,15 @@ class Stores(Base):
     updated_at = Column(DateTime, default=jst, onupdate=jst, nullable=False)
 
 
+class SchoolDivisions(Base):
+    """学校区分マスタ - 小学校・中学校・高等学校などの区分"""
+
+    __tablename__ = "school_divisions"
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(100), nullable=False)
+
+
 class Schools(Base):
     """学校マスタ - 制服取り扱い学校の情報管理"""
 
@@ -70,9 +79,9 @@ class Schools(Base):
     school_code = Column(String(20), nullable=False, unique=True)
     name = Column(String(100), nullable=False)
     name_kana = Column(String(100))
-    school_type = Column(
-        String(20), nullable=False
-    )  # elementary/junior_high/high/other
+    school_divisions_id = Column(
+        Integer, ForeignKey("school_divisions.id"), nullable=False
+    )
     postal_code = Column(String(10))
     address = Column(String(200))
     phone = Column(String(20))
@@ -89,11 +98,11 @@ class Projects(Base):
     __tablename__ = "projects"
 
     id = Column(Integer, primary_key=True)
+    company_id = Column(Integer, ForeignKey("companies.id"), nullable=False)
     project_code = Column(String(20), nullable=False, unique=True)
     name = Column(String(100), nullable=False)
     description = Column(String(500))
-    start_date = Column(Date, nullable=False)
-    end_date = Column(Date, nullable=False)
+    # 予約受付期間は学校区分ごとに異なるため ProjectSchoolDivisions が持つ
     reservation_interval = Column(Integer, nullable=False, default=30)  # 20/30/60分
     is_enabled = Column(Boolean, nullable=False, default=True)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
@@ -101,6 +110,42 @@ class Projects(Base):
     deleted_at = Column(DateTime)
     created_at = Column(DateTime, default=jst, nullable=False)
     updated_at = Column(DateTime, default=jst, onupdate=jst, nullable=False)
+
+
+class Companies(Base):
+    """会社マスタ - 予約URLの [company_slug] で参照する"""
+
+    __tablename__ = "companies"
+
+    id = Column(Integer, primary_key=True)
+    slug = Column(String(50), nullable=False, unique=True)
+    company_code = Column(String(20), nullable=False, unique=True)
+    name = Column(String(100), nullable=False)
+    name_kana = Column(String(100))
+    postal_code = Column(String(10))
+    address = Column(String(200))
+    phone = Column(String(20))
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    updated_by = Column(Integer, ForeignKey("users.id"))
+    deleted_at = Column(DateTime)
+    created_at = Column(DateTime, default=jst, nullable=False)
+    updated_at = Column(DateTime, default=jst, onupdate=jst, nullable=False)
+
+
+class ProjectSchoolDivisions(Base):
+    """プロジェクト学校区分関連テーブル - 学校区分ごとの予約受付期間"""
+
+    __tablename__ = "project_school_divisions"
+
+    project_id = Column(
+        Integer, ForeignKey("projects.id", ondelete="CASCADE"), primary_key=True
+    )
+    school_divisions_id = Column(
+        Integer, ForeignKey("school_divisions.id"), primary_key=True
+    )
+    start_date = Column(Date, nullable=False)
+    end_date = Column(Date, nullable=False)
+    created_at = Column(DateTime, default=jst, nullable=False)
 
 
 class ProjectStores(Base):
@@ -117,13 +162,13 @@ class ProjectStores(Base):
     created_at = Column(DateTime, default=jst, nullable=False)
 
 
-class ProjectSchools(Base):
-    """プロジェクト学校関連テーブル - プロジェクトと学校の多対多リレーション"""
+class StoreSchools(Base):
+    """店舗学校関連テーブル - 店舗が取り扱う学校の制服"""
 
-    __tablename__ = "project_schools"
+    __tablename__ = "store_schools"
 
-    project_id = Column(
-        Integer, ForeignKey("projects.id", ondelete="CASCADE"), primary_key=True
+    store_id = Column(
+        Integer, ForeignKey("stores.id", ondelete="CASCADE"), primary_key=True
     )
     school_id = Column(
         Integer, ForeignKey("schools.id", ondelete="CASCADE"), primary_key=True

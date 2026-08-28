@@ -104,7 +104,7 @@ CREATE TABLE schools (
     school_code VARCHAR(20) NOT NULL UNIQUE,
     name VARCHAR(100) NOT NULL,
     name_kana VARCHAR(100),
-    school_type VARCHAR(20) NOT NULL CHECK (school_type IN ('elementary', 'junior_high', 'high', 'other')),
+    school_divisions_id INTEGER NOT NULL,
     postal_code VARCHAR(10),
     address VARCHAR(200),
     phone VARCHAR(20),
@@ -116,7 +116,7 @@ CREATE TABLE schools (
 );
 
 CREATE INDEX idx_schools_code ON schools(school_code);
-CREATE INDEX idx_schools_type ON schools(school_type);
+CREATE INDEX idx_schools_division ON schools(school_divisions_id);
 CREATE INDEX idx_schools_enabled ON schools(is_enabled, deleted_at);
 
 COMMENT ON TABLE schools IS '学校マスタ';
@@ -124,7 +124,7 @@ COMMENT ON COLUMN schools.id IS '主キー';
 COMMENT ON COLUMN schools.school_code IS '学校コード';
 COMMENT ON COLUMN schools.name IS '学校名';
 COMMENT ON COLUMN schools.name_kana IS '学校名（カナ）';
-COMMENT ON COLUMN schools.school_type IS '学校区分（elementary/junior_high/high/other）';
+COMMENT ON COLUMN schools.school_divisions_id IS '学校区分ID';
 COMMENT ON COLUMN schools.postal_code IS '郵便番号';
 COMMENT ON COLUMN schools.address IS '住所';
 COMMENT ON COLUMN schools.phone IS '電話番号';
@@ -135,15 +135,27 @@ COMMENT ON COLUMN schools.created_at IS '作成日時';
 COMMENT ON COLUMN schools.updated_at IS '更新日時';
 
 -- ===========================================
+-- 3-2. 学校区分マスタ (school_divisions)
+-- ===========================================
+-- 小学校・中学校・高等学校などの区分。schools から参照する。
+CREATE TABLE school_divisions (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL
+);
+
+COMMENT ON TABLE school_divisions IS '学校区分マスタ';
+COMMENT ON COLUMN school_divisions.id IS '主キー';
+COMMENT ON COLUMN school_divisions.name IS '区分名';
+
+-- ===========================================
 -- 4. プロジェクトテーブル (projects)
 -- ===========================================
 CREATE TABLE projects (
     id SERIAL PRIMARY KEY,
+    company_id INTEGER NOT NULL,
     project_code VARCHAR(20) NOT NULL UNIQUE,
     name VARCHAR(100) NOT NULL,
     description VARCHAR(500),
-    start_date DATE NOT NULL,
-    end_date DATE NOT NULL,
     reservation_interval INTEGER NOT NULL DEFAULT 30,
     is_enabled BOOLEAN NOT NULL DEFAULT TRUE,
     created_by INTEGER NOT NULL,
@@ -156,16 +168,15 @@ CREATE TABLE projects (
 );
 
 CREATE INDEX idx_projects_code ON projects(project_code);
-CREATE INDEX idx_projects_period ON projects(start_date, end_date);
+CREATE INDEX idx_projects_company ON projects(company_id);
 CREATE INDEX idx_projects_enabled ON projects(is_enabled, deleted_at);
 
 COMMENT ON TABLE projects IS 'プロジェクトテーブル';
 COMMENT ON COLUMN projects.id IS '主キー';
+COMMENT ON COLUMN projects.company_id IS '会社ID';
 COMMENT ON COLUMN projects.project_code IS 'プロジェクトコード';
 COMMENT ON COLUMN projects.name IS 'プロジェクト名';
 COMMENT ON COLUMN projects.description IS 'プロジェクト説明';
-COMMENT ON COLUMN projects.start_date IS '開始日';
-COMMENT ON COLUMN projects.end_date IS '終了日';
 COMMENT ON COLUMN projects.reservation_interval IS '予約時間間隔（分）';
 COMMENT ON COLUMN projects.is_enabled IS '有効フラグ';
 COMMENT ON COLUMN projects.created_by IS '作成者（ユーザーID）';
@@ -194,23 +205,50 @@ COMMENT ON COLUMN project_stores.store_id IS '店舗ID';
 COMMENT ON COLUMN project_stores.created_at IS '作成日時';
 
 -- ===========================================
--- 6. プロジェクト学校関連テーブル (project_schools)
+-- 5-2. プロジェクト学校区分関連テーブル (project_school_divisions)
 -- ===========================================
-CREATE TABLE project_schools (
+-- 予約受付期間は学校区分ごとに異なるため、期間はここが持つ。
+-- プロジェクト自体は期間を持たない。
+CREATE TABLE project_school_divisions (
     project_id INTEGER NOT NULL,
+    school_divisions_id INTEGER NOT NULL,
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (project_id, school_divisions_id),
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (school_divisions_id) REFERENCES school_divisions(id)
+);
+
+CREATE INDEX idx_project_school_divisions_period
+    ON project_school_divisions(start_date, end_date);
+
+COMMENT ON TABLE project_school_divisions IS 'プロジェクト学校区分関連テーブル（学校区分ごとの予約受付期間）';
+COMMENT ON COLUMN project_school_divisions.project_id IS 'プロジェクトID';
+COMMENT ON COLUMN project_school_divisions.school_divisions_id IS '学校区分ID';
+COMMENT ON COLUMN project_school_divisions.start_date IS '受付開始日';
+COMMENT ON COLUMN project_school_divisions.end_date IS '受付終了日';
+COMMENT ON COLUMN project_school_divisions.created_at IS '作成日時';
+
+-- ===========================================
+-- 6. 店舗学校関連テーブル (store_schools)
+-- ===========================================
+-- どの店舗がどの学校の制服を取り扱っているかを表す。
+CREATE TABLE store_schools (
+    store_id INTEGER NOT NULL,
     school_id INTEGER NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (project_id, school_id),
-    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    PRIMARY KEY (store_id, school_id),
+    FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE,
     FOREIGN KEY (school_id) REFERENCES schools(id)
 );
 
-CREATE INDEX idx_project_schools_school ON project_schools(school_id);
+CREATE INDEX idx_store_schools_school ON store_schools(school_id);
 
-COMMENT ON TABLE project_schools IS 'プロジェクト学校関連テーブル';
-COMMENT ON COLUMN project_schools.project_id IS 'プロジェクトID';
-COMMENT ON COLUMN project_schools.school_id IS '学校ID';
-COMMENT ON COLUMN project_schools.created_at IS '作成日時';
+COMMENT ON TABLE store_schools IS '店舗学校関連テーブル（店舗が取り扱う学校の制服）';
+COMMENT ON COLUMN store_schools.store_id IS '店舗ID';
+COMMENT ON COLUMN store_schools.school_id IS '学校ID';
+COMMENT ON COLUMN store_schools.created_at IS '作成日時';
 
 -- ===========================================
 -- 7. 予約テーブル (reservations)
@@ -328,6 +366,45 @@ COMMENT ON COLUMN schedules.created_at IS '作成日時';
 COMMENT ON COLUMN schedules.updated_at IS '更新日時';
 
 -- ===========================================
+-- 9. 会社マスタ (companies)
+-- ===========================================
+-- 他テーブルからの外部キーは後日追加する。
+CREATE TABLE companies (
+    id SERIAL PRIMARY KEY,
+    slug VARCHAR(50) NOT NULL UNIQUE,
+    company_code VARCHAR(20) NOT NULL UNIQUE,
+    name VARCHAR(100) NOT NULL,
+    name_kana VARCHAR(100),
+    postal_code VARCHAR(10),
+    address VARCHAR(200),
+    phone VARCHAR(20),
+    created_by INTEGER NOT NULL,
+    updated_by INTEGER,
+    deleted_at TIMESTAMP,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_companies_slug ON companies(slug);
+CREATE INDEX idx_companies_code ON companies(company_code);
+CREATE INDEX idx_companies_deleted ON companies(deleted_at);
+
+COMMENT ON TABLE companies IS '会社マスタ';
+COMMENT ON COLUMN companies.id IS '主キー';
+COMMENT ON COLUMN companies.slug IS 'URL等で使う識別子';
+COMMENT ON COLUMN companies.company_code IS '会社コード';
+COMMENT ON COLUMN companies.name IS '会社名';
+COMMENT ON COLUMN companies.name_kana IS '会社名（カナ）';
+COMMENT ON COLUMN companies.postal_code IS '郵便番号';
+COMMENT ON COLUMN companies.address IS '住所';
+COMMENT ON COLUMN companies.phone IS '電話番号';
+COMMENT ON COLUMN companies.created_by IS '作成者（ユーザーID）';
+COMMENT ON COLUMN companies.updated_by IS '更新者（ユーザーID）';
+COMMENT ON COLUMN companies.deleted_at IS '論理削除日時';
+COMMENT ON COLUMN companies.created_at IS '作成日時';
+COMMENT ON COLUMN companies.updated_at IS '更新日時';
+
+-- ===========================================
 -- トリガー関数: updated_at 自動更新
 -- ===========================================
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -357,12 +434,31 @@ CREATE TRIGGER update_reservations_updated_at BEFORE UPDATE ON reservations
 CREATE TRIGGER update_schedules_updated_at BEFORE UPDATE ON schedules
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+CREATE TRIGGER update_companies_updated_at BEFORE UPDATE ON companies
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
 -- ===========================================
 -- 外部キー制約の追加（users → stores）
 -- ===========================================
 ALTER TABLE users
 ADD CONSTRAINT fk_users_store_id 
 FOREIGN KEY (store_id) REFERENCES stores(id);
+
+-- ===========================================
+-- 外部キー制約の追加（schools → school_divisions）
+-- ===========================================
+-- school_divisions は schools より後に定義しているため、ここで付ける。
+ALTER TABLE schools
+ADD CONSTRAINT fk_schools_school_divisions_id
+FOREIGN KEY (school_divisions_id) REFERENCES school_divisions(id);
+
+-- ===========================================
+-- 外部キー制約の追加（projects → companies）
+-- ===========================================
+-- companies は projects より後に定義しているため、ここで付ける。
+ALTER TABLE projects
+ADD CONSTRAINT fk_projects_company_id
+FOREIGN KEY (company_id) REFERENCES companies(id);
 
 -- ===========================================
 -- 初期化完了

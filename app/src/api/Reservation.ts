@@ -18,29 +18,54 @@ function toErrorMessage(error: unknown, fallback: string): string {
 }
 
 /**
- * 有効なプロジェクト一覧を取得
+ * 予約受付用のプロジェクト情報を取得
+ *
+ * 予約URL /[company_slug]/[project_id]/[store_id] の妥当性検証を兼ねる。
+ * 会社・プロジェクト・店舗の組み合わせが正しくない場合はエラーになる。
  */
-export async function getProjects(): Promise<{
+export async function getReservationProject(
+    companySlug: string,
+    projectId: number,
+    storeId: number
+): Promise<{
     success: boolean
-    data: ProjectPublic[] | null
+    data: ProjectPublic | null
     error?: string
 }> {
     try {
-        const response = await api.get<ProjectPublic[]>("/public/projects")
+        const response = await api.get<ProjectPublic>(`/public/projects/${projectId}`, {
+            params: { company_slug: companySlug, store_id: storeId },
+        })
         return { success: true, data: response.data }
     } catch (error) {
-        console.error("Failed to fetch projects:", error)
-        return { success: false, data: null, error: "プロジェクトの取得に失敗しました" }
+        console.error("Failed to fetch project:", error)
+        const message = toErrorMessage(error, "予約ページの情報を取得できませんでした")
+        return { success: false, data: null, error: message }
+    }
+}
+
+/**
+ * 店舗詳細を取得
+ */
+export async function getStore(storeId: number): Promise<{
+    success: boolean
+    data: StorePublic | null
+    error?: string
+}> {
+    try {
+        const response = await api.get<StorePublic>(`/public/stores/${storeId}`)
+        return { success: true, data: response.data }
+    } catch (error) {
+        console.error("Failed to fetch store:", error)
+        return { success: false, data: null, error: "店舗の取得に失敗しました" }
     }
 }
 
 /**
  * 店舗一覧を取得
- * @param projectId プロジェクトID（指定した場合、そのプロジェクトに紐づく店舗のみ）
+ * @param projectId プロジェクトID（指定した場合、そのプロジェクトの対象店舗のみ）
  */
-export async function getStores(
-    projectId?: number
-): Promise<{
+export async function getStores(projectId?: number): Promise<{
     success: boolean
     data: StorePublic[] | null
     error?: string
@@ -56,10 +81,14 @@ export async function getStores(
 }
 
 /**
- * 学校一覧を取得
- * @param projectId プロジェクトID（指定した場合、そのプロジェクトに紐づく学校のみ）
+ * 予約可能な学校一覧を取得
+ *
+ * 取り扱い学校は店舗ごとに決まり（store_schools）、さらに
+ * 受付期間は学校区分ごとに決まる（project_school_divisions）。
+ * 指定した条件を満たす学校だけが返る。両方省略すると全ての有効な学校を返す。
  */
 export async function getSchools(
+    storeId?: number,
     projectId?: number
 ): Promise<{
     success: boolean
@@ -67,7 +96,9 @@ export async function getSchools(
     error?: string
 }> {
     try {
-        const params = projectId ? { project_id: projectId } : {}
+        const params: Record<string, number> = {}
+        if (storeId) params.store_id = storeId
+        if (projectId) params.project_id = projectId
         const response = await api.get<SchoolPublic[]>("/public/schools", { params })
         return { success: true, data: response.data }
     } catch (error) {

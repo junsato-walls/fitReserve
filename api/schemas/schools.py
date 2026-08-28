@@ -2,10 +2,8 @@
 """学校マスタのスキーマ定義"""
 
 from pydantic import BaseModel, Field, ConfigDict
-from typing import Optional, Literal
+from typing import Optional
 from datetime import datetime
-
-SchoolType = Literal["elementary", "junior_high", "high", "other"]
 
 
 class SchoolBase(BaseModel):
@@ -14,8 +12,8 @@ class SchoolBase(BaseModel):
     school_code: str = Field(..., max_length=20, description="学校コード（ユニーク）")
     name: str = Field(..., max_length=100, description="学校名")
     name_kana: Optional[str] = Field(None, max_length=100, description="学校名カナ")
-    school_type: SchoolType = Field(
-        ..., description="学校区分（elementary/junior_high/high/other）"
+    school_divisions_id: int = Field(
+        ..., description="学校区分ID（school_divisions.id）"
     )
     postal_code: Optional[str] = Field(None, max_length=10, description="郵便番号")
     address: Optional[str] = Field(None, max_length=200, description="住所")
@@ -34,7 +32,7 @@ class SchoolCreate(SchoolBase):
                     "school_code": "SCH001",
                     "name": "東京第一中学校",
                     "name_kana": "トウキョウダイイチチュウガッコウ",
-                    "school_type": "junior_high",
+                    "school_divisions_id": 2,
                     "postal_code": "100-0001",
                     "address": "東京都千代田区千代田2-1-1",
                     "phone": "03-2345-6789",
@@ -52,7 +50,7 @@ class SchoolUpdate(BaseModel):
     school_code: Optional[str] = Field(None, max_length=20)
     name: Optional[str] = Field(None, max_length=100)
     name_kana: Optional[str] = Field(None, max_length=100)
-    school_type: Optional[SchoolType] = None
+    school_divisions_id: Optional[int] = None
     postal_code: Optional[str] = Field(None, max_length=10)
     address: Optional[str] = Field(None, max_length=200)
     phone: Optional[str] = Field(None, max_length=20)

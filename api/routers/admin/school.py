@@ -29,7 +29,7 @@ def get_schools(
     login_user: UserDependency,
     skip: int = 0,
     limit: int = 100,
-    school_type: str = None,
+    school_divisions_id: int = None,
     include_deleted: bool = False,
     db: Session = Depends(get_db),
 ):
@@ -37,8 +37,8 @@ def get_schools(
     query = db.query(Schools)
     if not include_deleted:
         query = query.filter(Schools.deleted_at.is_(None))
-    if school_type:
-        query = query.filter(Schools.school_type == school_type)
+    if school_divisions_id:
+        query = query.filter(Schools.school_divisions_id == school_divisions_id)
     schools = query.offset(skip).limit(limit).all()
     return schools
 

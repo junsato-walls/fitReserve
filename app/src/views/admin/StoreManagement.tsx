@@ -14,7 +14,10 @@ import { Alert } from "@/components/base/feedback/Alert";
 import { Button } from "@/components/base/buttons/Button";
 import { Card } from "@/components/base/display/Card";
 import { Input } from "@/components/base/forms/Input";
-import type { Store } from "@/types/admin"
+import type { School, Store } from "@/types/admin"
+import { Checkbox } from "@/components/base/forms/Checkbox";
+import { CheckboxGroup } from "@/components/base/forms/CheckboxGroup";
+import { getSchoolsAdmin } from "@/api/School"
 import { useEffect, useState } from "react"
 
 export const StoreManagement = () => {
@@ -25,6 +28,7 @@ export const StoreManagement = () => {
     const [isDialogOpen, setIsDialogOpen] = useState(false)
     const [editingStore, setEditingStore] = useState<Store | null>(null)
     const [deleteTarget, setDeleteTarget] = useState<Store | null>(null)
+    const [schools, setSchools] = useState<School[]>([])
 
     const [formData, setFormData] = useState({
         store_code: "",
@@ -40,11 +44,33 @@ export const StoreManagement = () => {
         regular_holiday: "",
         description: "",
         is_enabled: true,
+        school_ids: [] as number[],
     })
 
     useEffect(() => {
+        // 一覧と学校マスタは依存関係が無いので並列で取得する
         fetchStores()
+        fetchSchools()
     }, [])
+
+    const fetchSchools = async () => {
+        const result = await getSchoolsAdmin()
+        if (result.success && result.data) {
+            setSchools(result.data)
+        } else {
+            setError(result.error || "学校一覧の取得に失敗しました")
+        }
+    }
+
+    /** 取り扱い学校のチェックを反転する */
+    const toggleSchool = (schoolId: number) => {
+        setFormData((prev) => ({
+            ...prev,
+            school_ids: prev.school_ids.includes(schoolId)
+                ? prev.school_ids.filter((id) => id !== schoolId)
+                : [...prev.school_ids, schoolId],
+        }))
+    }
 
     const fetchStores = async () => {
         setLoading(true)
@@ -76,6 +102,7 @@ export const StoreManagement = () => {
             regular_holiday: "",
             description: "",
             is_enabled: true,
+            school_ids: [],
         })
         setIsDialogOpen(true)
     }
@@ -96,6 +123,7 @@ export const StoreManagement = () => {
             regular_holiday: store.regular_holiday || "",
             description: store.description || "",
             is_enabled: store.is_enabled,
+            school_ids: store.school_ids || [],
         })
         setIsDialogOpen(true)
     }
@@ -118,6 +146,7 @@ export const StoreManagement = () => {
             regular_holiday: formData.regular_holiday || undefined,
             description: formData.description || undefined,
             is_enabled: formData.is_enabled,
+            school_ids: formData.school_ids,
         }
 
         const validationError = validate(storeSchema, data)
@@ -186,6 +215,12 @@ export const StoreManagement = () => {
                         { id: "address", header: "住所", accessor: "address" },
                         { id: "phone", header: "電話番号", accessor: "phone" },
                         { id: "capacity", header: "対応可能人数", accessor: "capacity" },
+                        {
+                            id: "school_ids",
+                            header: "取り扱い学校",
+                            accessor: "school_ids",
+                            format: (value) => `${(value as number[])?.length ?? 0}校`,
+                        },
                         { id: "is_enabled", header: "状態", accessor: "is_enabled", type: "boolean" },
                     ]}
                     actions={[
@@ -348,6 +383,21 @@ export const StoreManagement = () => {
                             }
                             placeholder="店舗の説明文"
                         />
+
+                        <CheckboxGroup
+                            label="取り扱い学校"
+                            direction="horizontal"
+                        >
+                            {schools.map((school) => (
+                                <Checkbox
+                                    key={school.id}
+                                    label={school.name}
+                                    value={school.id}
+                                    checked={formData.school_ids.includes(school.id)}
+                                    onCheckedChange={() => toggleSchool(school.id)}
+                                />
+                            ))}
+                        </CheckboxGroup>
 
                         <div>
                             <Select

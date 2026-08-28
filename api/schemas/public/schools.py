@@ -10,7 +10,7 @@ class SchoolPublic(BaseModel):
     id: int
     school_code: str
     name: str
-    school_type: str
+    school_divisions_id: int
     postal_code: str | None = None
     address: str | None = None
 

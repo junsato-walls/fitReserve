@@ -4,7 +4,7 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from system.db import get_db
-from system.models import Schools, ProjectSchools
+from system.models import ProjectSchoolDivisions, Schools, StoreSchools
 from schemas.public.schools import SchoolPublic
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -20,31 +20,45 @@ def jst() -> datetime:
 
 @router.get("/schools", response_model=list[SchoolPublic])
 def get_schools(
-    project_id: int | None = Query(None, description="プロジェクトID"),
+    store_id: int | None = Query(None, description="店舗ID"),
+    project_id: int | None = Query(
+        None, description="プロジェクトID（受付中の学校区分のみに絞る）"
+    ),
     db: Session = Depends(get_db),
 ):
     """学校一覧を取得（顧客向け）
 
-    プロジェクトIDが指定された場合、そのプロジェクトに紐づく学校のみを返す。
-    未指定の場合は全ての有効な学校を返す。
+    予約フォームは「店舗を選んでから学校を選ぶ」流れになる。
+
+    - store_id: その店舗が制服を取り扱っている学校のみ（store_schools）
+    - project_id: 本日受付中の学校区分に属する学校のみ
+      （受付期間は区分ごとに異なるため、期間外の区分の学校は選ばせない）
     """
     query = db.query(Schools).filter(
         Schools.is_enabled.is_(True),
         Schools.deleted_at.is_(None),
     )
 
+    if store_id:
+        # 取り扱いが1件も登録されていない店舗は、学校を選べない状態が正しい。
+        # （プロジェクトの「レコードなし＝全対象」とは扱いが異なる）
+        query = query.join(
+            StoreSchools, StoreSchools.school_id == Schools.id
+        ).filter(StoreSchools.store_id == store_id)
+
     if project_id:
-        # プロジェクトに紐づく学校のみ取得
-        school_ids = (
-            db.query(ProjectSchools.school_id)
-            .filter(ProjectSchools.project_id == project_id)
+        today = jst().date()
+        accepting_ids = [
+            row.school_divisions_id
+            for row in db.query(ProjectSchoolDivisions.school_divisions_id)
+            .filter(
+                ProjectSchoolDivisions.project_id == project_id,
+                ProjectSchoolDivisions.start_date <= today,
+                ProjectSchoolDivisions.end_date >= today,
+            )
             .all()
-        )
+        ]
+        # 受付中の区分が1つも無ければ、選べる学校も無いのが正しい
+        query = query.filter(Schools.school_divisions_id.in_(accepting_ids))
 
-        if school_ids:
-            # project_schoolsにレコードがある場合は指定学校のみ
-            query = query.filter(Schools.id.in_([s.school_id for s in school_ids]))
-        # レコードがない場合は全学校が対象（仕様通り）
-
-    schools = query.order_by(Schools.name).all()
-    return schools
+    return query.order_by(Schools.name).all()

@@ -4,6 +4,7 @@ import { schoolSchema, validate } from "@/lib/validation"
 import {
     createSchool,
     deleteSchool,
+    getSchoolDivisions,
     getSchoolsAdmin,
     updateSchool,
 } from "@/api/School"
@@ -14,7 +15,7 @@ import { Alert } from "@/components/base/feedback/Alert";
 import { Button } from "@/components/base/buttons/Button";
 import { Card } from "@/components/base/display/Card";
 import { Input } from "@/components/base/forms/Input";
-import type { School } from "@/types/admin"
+import type { School, SchoolDivision } from "@/types/admin"
 import { useEffect, useState } from "react"
 
 export const SchoolManagement = () => {
@@ -25,12 +26,13 @@ export const SchoolManagement = () => {
     const [isDialogOpen, setIsDialogOpen] = useState(false)
     const [editingSchool, setEditingSchool] = useState<School | null>(null)
     const [deleteTarget, setDeleteTarget] = useState<School | null>(null)
+    const [divisions, setDivisions] = useState<SchoolDivision[]>([])
 
     const [formData, setFormData] = useState({
         school_code: "",
         name: "",
         name_kana: "",
-        school_type: "elementary",
+        school_divisions_id: 0,
         postal_code: "",
         address: "",
         phone: "",
@@ -39,8 +41,19 @@ export const SchoolManagement = () => {
     })
 
     useEffect(() => {
+        // 一覧と区分マスタは依存関係が無いので並列で取得する
         fetchSchools()
+        fetchDivisions()
     }, [])
+
+    const fetchDivisions = async () => {
+        const result = await getSchoolDivisions()
+        if (result.success && result.data) {
+            setDivisions(result.data)
+        } else {
+            setError(result.error || "学校区分の取得に失敗しました")
+        }
+    }
 
     const fetchSchools = async () => {
         setLoading(true)
@@ -62,7 +75,7 @@ export const SchoolManagement = () => {
             school_code: "",
             name: "",
             name_kana: "",
-            school_type: "elementary",
+            school_divisions_id: divisions[0]?.id ?? 0,
             postal_code: "",
             address: "",
             phone: "",
@@ -78,7 +91,7 @@ export const SchoolManagement = () => {
             school_code: school.school_code,
             name: school.name,
             name_kana: school.name_kana || "",
-            school_type: school.school_type,
+            school_divisions_id: school.school_divisions_id,
             postal_code: school.postal_code || "",
             address: school.address || "",
             phone: school.phone || "",
@@ -96,7 +109,7 @@ export const SchoolManagement = () => {
             school_code: formData.school_code,
             name: formData.name,
             name_kana: formData.name_kana || undefined,
-            school_type: formData.school_type,
+            school_divisions_id: formData.school_divisions_id,
             postal_code: formData.postal_code || undefined,
             address: formData.address || undefined,
             phone: formData.phone || undefined,
@@ -141,16 +154,9 @@ export const SchoolManagement = () => {
         }
     }
 
-    const getSchoolTypeLabel = (type: string) => {
-        const labels: { [key: string]: string } = {
-            elementary: "小学校",
-            junior_high: "中学校",
-            high: "高校",
-            combined: "中高一貫",
-            other: "その他",
-        }
-        return labels[type] || type
-    }
+    /** 区分IDを名称に変換する（マスタ未取得の間はIDのまま出す） */
+    const getDivisionLabel = (id: number) =>
+        divisions.find((d) => d.id === id)?.name ?? String(id)
 
     return (
         <div className="space-y-6">
@@ -177,10 +183,10 @@ export const SchoolManagement = () => {
                         { id: "school_code", header: "学校コード", accessor: "school_code" },
                         { id: "name", header: "学校名", accessor: "name" },
                         {
-                            id: "school_type",
+                            id: "school_divisions_id",
                             header: "学校区分",
-                            accessor: "school_type",
-                            format: (value) => getSchoolTypeLabel(String(value)),
+                            accessor: "school_divisions_id",
+                            format: (value) => getDivisionLabel(Number(value)),
                         },
                         { id: "address", header: "住所", accessor: "address" },
                         { id: "phone", header: "電話番号", accessor: "phone" },
@@ -228,21 +234,19 @@ export const SchoolManagement = () => {
                                 placeholder="SCH001"
                             />
                             <div>
-                                {/* 選択肢はバックエンドのSchoolType（elementary/junior_high/high/other）に合わせる。
-                                    以前あった"combined"（中高一貫）はバックエンドに存在せず、選ぶと必ず登録エラーになっていた */}
+                                {/* 選択肢は school_divisions マスタから取得する。
+                                    固定のEnumではないため、区分を増やしても画面修正は不要 */}
                                 <Select
                                     label="学校区分 *"
                                     fullWidth
-                                    value={formData.school_type}
+                                    value={formData.school_divisions_id}
                                     onChange={(value) =>
-                                        setFormData({ ...formData, school_type: value })
+                                        setFormData({ ...formData, school_divisions_id: value })
                                     }
-                                    options={[
-                                        { value: "elementary", label: "小学校" },
-                                        { value: "junior_high", label: "中学校" },
-                                        { value: "high", label: "高校" },
-                                        { value: "other", label: "その他" },
-                                    ]}
+                                    options={divisions.map((d) => ({
+                                        value: d.id,
+                                        label: d.name,
+                                    }))}
                                 />
                             </div>
                         </div>

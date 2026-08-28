@@ -71,15 +71,15 @@ export const storeSchema = z.object({
 
 // ---- 学校（api/schemas/schools.py）----
 
-export const SCHOOL_TYPES = ["elementary", "junior_high", "high", "other"] as const
-
 export const schoolSchema = z.object({
     school_code: requiredText(20, "学校コード"),
     name: requiredText(100, "学校名"),
     name_kana: optionalText(100, "学校名カナ"),
-    school_type: z.enum(SCHOOL_TYPES, {
-        message: "学校区分を選択してください",
-    }),
+    // 学校区分は固定のEnumではなくマスタ参照（school_divisions）
+    school_divisions_id: z
+        .number({ message: "学校区分を選択してください" })
+        .int()
+        .min(1, "学校区分を選択してください"),
     postal_code: optionalText(10, "郵便番号"),
     address: optionalText(200, "住所"),
     phone: optionalText(20, "電話番号"),
@@ -89,23 +89,35 @@ export const schoolSchema = z.object({
 
 // ---- プロジェクト（api/schemas/projects.py）----
 
-export const projectSchema = z
+/**
+ * 学校区分ごとの予約受付期間
+ *
+ * 予約受付期間は学校区分によって異なるため、プロジェクト自体は期間を持たない。
+ */
+export const schoolDivisionPeriodSchema = z
     .object({
-        project_code: requiredText(20, "プロジェクトコード"),
-        name: requiredText(100, "プロジェクト名"),
-        description: optionalText(500, "プロジェクト説明"),
-        start_date: dateString("開始日"),
-        end_date: dateString("終了日"),
-        reservation_interval: z
-            .number()
-            .int("予約時間間隔は整数で入力してください")
-            .min(1, "予約時間間隔を選択してください"),
-        is_enabled: z.boolean(),
+        school_divisions_id: z.number().int().min(1),
+        start_date: dateString("受付開始日"),
+        end_date: dateString("受付終了日"),
     })
     .refine((v) => v.start_date <= v.end_date, {
-        message: "終了日は開始日以降の日付を指定してください",
+        message: "受付終了日は受付開始日以降の日付を指定してください",
         path: ["end_date"],
     })
+
+export const projectSchema = z.object({
+    project_code: requiredText(20, "プロジェクトコード"),
+    name: requiredText(100, "プロジェクト名"),
+    description: optionalText(500, "プロジェクト説明"),
+    reservation_interval: z
+        .number()
+        .int("予約時間間隔は整数で入力してください")
+        .min(1, "予約時間間隔を選択してください"),
+    is_enabled: z.boolean(),
+    school_divisions: z
+        .array(schoolDivisionPeriodSchema)
+        .min(1, "予約受付期間を1つ以上設定してください"),
+})
 
 // ---- ユーザー（api/schemas/generic/users.py）----
 

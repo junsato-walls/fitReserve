@@ -5,7 +5,15 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 from system.db import get_db
-from system.models import Reservations, Schedules, Stores, Schools, Projects
+from system.models import (
+    Reservations,
+    Schedules,
+    Stores,
+    Schools,
+    Projects,
+    ProjectSchoolDivisions,
+    StoreSchools,
+)
 from schemas.reservations import ReservationCreate, ReservationResponse
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -96,12 +104,46 @@ def create_reservation(reservation: ReservationCreate, db: Session = Depends(get
                 detail="指定されたプロジェクトが見つかりません",
             )
 
-        # 予約可能期間のチェック
-        if not (project.start_date <= reservation.reservation_date <= project.end_date):
+        # 予約受付期間のチェック
+        #
+        # 受付期間は学校区分ごとに異なるため、プロジェクトではなく
+        # 「この学校の区分」の期間で判定する。
+        # 区分の登録が無い＝その区分は受付対象外。
+        period = (
+            db.query(ProjectSchoolDivisions)
+            .filter(
+                ProjectSchoolDivisions.project_id == project.id,
+                ProjectSchoolDivisions.school_divisions_id
+                == school.school_divisions_id,
+            )
+            .first()
+        )
+        if not period:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="指定された日付はプロジェクトの期間外です",
+                detail="この学校区分は受付対象外です",
             )
+
+        if not (period.start_date <= reservation.reservation_date <= period.end_date):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="指定された日付は予約受付期間外です",
+            )
+
+    # 店舗がその学校の制服を取り扱っているかの確認
+    handled = (
+        db.query(StoreSchools)
+        .filter(
+            StoreSchools.store_id == reservation.store_id,
+            StoreSchools.school_id == reservation.school_id,
+        )
+        .first()
+    )
+    if not handled:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="この店舗では指定された学校の制服を取り扱っていません",
+        )
 
     # スケジュールの空き確認
     # 同時予約によるオーバーブッキングを防ぐため、
