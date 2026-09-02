@@ -32,7 +32,7 @@ export async function login(
     password: string
 ): Promise<LoginResponse> {
     try {
-        // バックエンド(routers/custom/auth.py)はBody(...)でJSONを要求するため
+        // バックエンド(api/router/auth/sessions.py)はBody(...)でJSONを要求するため
         // クエリ文字列ではなくリクエストボディで送信する
         const response = await api.post<BackendLoginResponse>('/auth/login', {
             personal_id,
