@@ -89,7 +89,7 @@ INSERT INTO users (
 
 ('EMP001', 'tanaka', 'タナカタロウ', 'tanaka@fitreserve.example.com',
  '$2b$12$DqXrp0JdJcK.xDIiTH/RTufo6YzEMkvlrPw2jYhLKxtXbuNDkLtU2',
- '', 'staff', 1, TRUE, '渋谷店 店長'),
+ '', 'staff', 1, TRUE, '渋谷店 店長（新宿店 兼務）'),
 
 ('EMP002', 'suzuki', 'スズキハナコ', 'suzuki@fitreserve.example.com',
  '$2b$12$DqXrp0JdJcK.xDIiTH/RTufo6YzEMkvlrPw2jYhLKxtXbuNDkLtU2',
@@ -101,7 +101,7 @@ INSERT INTO users (
 
 ('EMP004', 'ito', 'イトウミサキ', 'ito@fitreserve.example.com',
  '$2b$12$DqXrp0JdJcK.xDIiTH/RTufo6YzEMkvlrPw2jYhLKxtXbuNDkLtU2',
- '', 'staff', 3, TRUE, '横浜店 店長'),
+ '', 'staff', 3, TRUE, '横浜店 店長（川崎店 兼務）'),
 
 ('EMP005', 'watanabe', 'ワタナベケンタ', 'watanabe@fitreserve.example.com',
  '$2b$12$DqXrp0JdJcK.xDIiTH/RTufo6YzEMkvlrPw2jYhLKxtXbuNDkLtU2',
@@ -118,10 +118,39 @@ INSERT INTO users (
 -- 無効なアカウント（ログインできないことの確認用）
 ('EMP008', 'furukawa', 'フルカワシン', 'furukawa@fitreserve.example.com',
  '$2b$12$DqXrp0JdJcK.xDIiTH/RTufo6YzEMkvlrPw2jYhLKxtXbuNDkLtU2',
- '', 'staff', 2, FALSE, '退職済み（2025年12月）');
+ '', 'staff', 2, FALSE, '退職済み（2025年12月）'),
+
+-- システム管理者。既存データが created_by = 1 を参照しているため、
+-- id がずれないよう末尾に追加する。
+('SYS001', 'sysadmin', 'システムカンリシャ', 'sysadmin@fitreserve.example.com',
+ '$2b$12$DqXrp0JdJcK.xDIiTH/RTufo6YzEMkvlrPw2jYhLKxtXbuNDkLtU2',
+ '', 'super_admin', NULL, TRUE, 'システム管理者（会社・adminユーザー管理）');
 
 -- ===========================================
--- 3-2. 会社マスタ (companies)
+-- 3-2. ユーザー担当店舗 (user_stores)
+-- ===========================================
+-- staff / readonly が操作・参照できる店舗。
+-- super_admin / admin は全店舗が対象のため、ここにはレコードを作らない。
+-- id の直書きを避けるため personal_id で引き当てる。
+INSERT INTO user_stores (user_id, store_id)
+SELECT u.id, v.store_id
+FROM (
+    VALUES
+        ('EMP001', 1),  -- 渋谷店 店長（新宿店 兼務）
+        ('EMP001', 2),
+        ('EMP002', 2),  -- 新宿店 スタッフ
+        ('EMP003', 3),  -- 横浜店 アルバイト（参照のみ）
+        ('EMP004', 3),  -- 横浜店 店長（川崎店 兼務）
+        ('EMP004', 5),
+        ('EMP005', 4),  -- 池袋店 店長
+        ('EMP006', 5),  -- 川崎店 スタッフ
+        ('EMP007', 4),  -- 池袋店 アルバイト（参照のみ）
+        ('EMP008', 2)   -- 退職済み（無効アカウントでも担当は残る）
+) AS v(personal_id, store_id)
+JOIN users u ON u.personal_id = v.personal_id;
+
+-- ===========================================
+-- 3-3. 会社マスタ (companies)
 -- ===========================================
 -- created_by が users を参照するため、ユーザー登録の後に入れる。
 INSERT INTO companies (

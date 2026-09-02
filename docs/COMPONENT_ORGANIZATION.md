@@ -48,7 +48,7 @@ base/
 ├── feedback/   # Alert, Toast, Spinner
 ├── forms/      # Input, Textarea, Select, Dropdown, Checkbox(+Group), Radio(+Group), Datepicker, FileInput, CommentBox
 ├── icons/      # ArrowLeft, ArrowRight, Delete, Download, Edit
-├── display/    # Table, Card, Badge, Tabs, Avatar, Carousel, ChatBubble
+├── display/    # Table, Card, Badge, Tabs, Timetable, Avatar, Carousel, ChatBubble
 ├── navigation/ # Breadcrumb, Pagination, BottomNavigation
 └── overlays/   # Modal, Drawer, Tooltips, Banner, Loading
 ```
@@ -99,7 +99,7 @@ base/
 <Badge tone="warning">予約受付</Badge>
 ```
 
-バッジの用途語彙 `BadgeTone` は `base/display/Badge.tsx` が定義し、`base/display/Table.tsx` もそれを参照する。
+バッジの用途語彙 `BadgeTone` は `base/display/Badge.tsx` が定義し、`base/display/Table.tsx`・`base/display/Timetable.tsx` もそれを参照する。
 
 | tone | 用途 |
 |---|---|

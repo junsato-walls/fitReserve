@@ -17,7 +17,8 @@ CREATE TABLE users (
     email VARCHAR(100),
     password VARCHAR(100) NOT NULL,
     salt VARCHAR(100) NOT NULL,
-    role VARCHAR(20) NOT NULL DEFAULT 'readonly' CHECK (role IN ('admin', 'staff', 'readonly')),
+    role VARCHAR(20) NOT NULL DEFAULT 'readonly'
+        CHECK (role IN ('super_admin', 'admin', 'staff', 'readonly')),
     store_id INTEGER,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     icon VARCHAR(500),
@@ -40,8 +41,8 @@ COMMENT ON COLUMN users.name_kana IS '氏名（カナ）';
 COMMENT ON COLUMN users.email IS 'メールアドレス';
 COMMENT ON COLUMN users.password IS 'パスワード（ハッシュ化）';
 COMMENT ON COLUMN users.salt IS 'パスワードソルト';
-COMMENT ON COLUMN users.role IS 'ユーザー権限（admin/staff/readonly）';
-COMMENT ON COLUMN users.store_id IS '所属店舗ID';
+COMMENT ON COLUMN users.role IS 'ユーザー権限（super_admin/admin/staff/readonly）';
+COMMENT ON COLUMN users.store_id IS '所属店舗ID（表示用の主店舗。権限の対象店舗は user_stores が持つ）';
 COMMENT ON COLUMN users.is_active IS 'アカウント有効フラグ';
 COMMENT ON COLUMN users.icon IS 'プロフィール画像URL';
 COMMENT ON COLUMN users.deleted_at IS '論理削除日時';
@@ -95,6 +96,28 @@ COMMENT ON COLUMN stores.is_enabled IS '有効フラグ';
 COMMENT ON COLUMN stores.deleted_at IS '論理削除日時';
 COMMENT ON COLUMN stores.created_at IS '作成日時';
 COMMENT ON COLUMN stores.updated_at IS '更新日時';
+
+-- ===========================================
+-- 2-2. ユーザー担当店舗テーブル (user_stores)
+-- ===========================================
+-- staff / readonly が操作・参照できる店舗を表す。1ユーザーが複数店舗を持てる。
+-- super_admin / admin は全店舗が対象のため、このテーブルにレコードを作らない。
+-- users.store_id は「所属店舗」の表示用で、権限判定にはこちらを使う。
+CREATE TABLE user_stores (
+    user_id INTEGER NOT NULL,
+    store_id INTEGER NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, store_id),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_user_stores_store ON user_stores(store_id);
+
+COMMENT ON TABLE user_stores IS 'ユーザー担当店舗テーブル（権限の対象店舗）';
+COMMENT ON COLUMN user_stores.user_id IS 'ユーザーID';
+COMMENT ON COLUMN user_stores.store_id IS '店舗ID';
+COMMENT ON COLUMN user_stores.created_at IS '作成日時';
 
 -- ===========================================
 -- 3. 学校マスタ (schools)
@@ -339,11 +362,17 @@ CREATE TABLE schedules (
     deleted_at TIMESTAMP,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE (store_id, schedule_date, start_time),
     FOREIGN KEY (store_id) REFERENCES stores(id),
     FOREIGN KEY (created_by) REFERENCES users(id),
     FOREIGN KEY (updated_by) REFERENCES users(id)
 );
+
+-- 同一店舗・同一日時の枠は1つだけ。
+-- テーブル制約(UNIQUE)ではなく部分インデックスにするのは、論理削除した枠が
+-- その日時を永久に塞いでしまうのを防ぐため（削除済みは重複判定に含めない）。
+CREATE UNIQUE INDEX idx_schedules_slot
+    ON schedules(store_id, schedule_date, start_time)
+    WHERE deleted_at IS NULL;
 
 CREATE INDEX idx_schedules_date ON schedules(schedule_date, is_available);
 CREATE INDEX idx_schedules_availability ON schedules(store_id, schedule_date, is_available, deleted_at);
@@ -382,7 +411,9 @@ CREATE TABLE companies (
     updated_by INTEGER,
     deleted_at TIMESTAMP,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (created_by) REFERENCES users(id),
+    FOREIGN KEY (updated_by) REFERENCES users(id)
 );
 
 CREATE INDEX idx_companies_slug ON companies(slug);

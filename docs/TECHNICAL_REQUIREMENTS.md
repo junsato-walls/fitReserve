@@ -190,19 +190,24 @@ def get_db():
 ```
 api/
 ├── main.py                 # アプリケーションエントリーポイント
-├── routers/               # APIルーター
-│   ├── admin/            # 管理者用API
+├── router/                # ルート管理層（HTTPの入り口）
+│   ├── auth/             # /auth（ログイン）
 │   ├── public/           # 認証不要API
-│   └── generic/          # 認証必須API
-├── schemas/              # Pydanticスキーマ
-│   ├── admin/
-│   ├── public/
-│   └── generic/
-├── system/               # システム設定
+│   ├── staff/            # ログイン必須API（readonly以上）
+│   ├── admin/            # マスタ管理API（admin以上）
+│   └── sysadmin/         # システム管理API（super_admin専用）
+├── usecase/               # 業務ロジック層（トランザクション境界）
+│   ├── public/ staff/ admin/ sysadmin/
+├── repository/            # DBアクセス層
+│   ├── query/            # SELECT
+│   └── command/          # INSERT / UPDATE / DELETE
+├── schema/                # Pydanticスキーマ（バリデーション・入出力定義）
+├── model/                 # SQLAlchemyモデル（DB定義）
+├── system/                # 基盤
 │   ├── db.py            # データベース接続
-│   ├── auth.py          # 認証処理
-│   ├── models.py        # SQLAlchemyモデル
-│   └── api_router.py    # ルーター統合
+│   ├── auth.py          # トークンの発行・検証
+│   ├── permissions.py   # ロールと担当店舗による認可
+│   └── clock.py         # JSTの現在時刻
 └── requirements.txt     # 依存パッケージ
 ```
 

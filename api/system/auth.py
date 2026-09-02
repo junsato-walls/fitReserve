@@ -1,178 +1,125 @@
 # -*- coding: utf-8 -*-
-"""認証・認可機能"""
+"""認証（トークンの発行と検証）
+
+トークンはJWTで、Cookieへの保存はNext.js側（Server Action）が行う。
+このモジュールが持つのは「発行」と「検証」まで。
+ロールと担当店舗による認可は system/permissions.py が担当する。
+"""
 
 # 標準ライブラリ
 import os
 from datetime import datetime, timedelta
-from typing import Annotated
+from zoneinfo import ZoneInfo
 
 # サードパーティ
-from fastapi import Depends, HTTPException, Security, status
-from fastapi.security import (
-    HTTPBearer,
-    HTTPAuthorizationCredentials,
-    OAuth2PasswordBearer,
-)
+from fastapi import HTTPException, Security, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
-from sqlalchemy.orm import Session
 
 # ローカル
-from schemas.custom.auth import DecodedToken
-from system.db import get_db
-from system.models import Users
+from schema.auth import DecodedToken
+from model import Users
 
-oauth2_schema = OAuth2PasswordBearer(tokenUrl="/auth/login")
-security = HTTPBearer()
-# アクセストークンの作成
-# ハッシュ化の方法
+# auto_error=True だと未ログイン時にFastAPIが403を返してしまう。
+# 「未ログイン=401 / 権限不足=403」を守るため、自前で401を返す。
+security = HTTPBearer(auto_error=False)
+
+# 署名アルゴリズム
 ALGORITHM = "HS256"
-# 環境変数から取得、未設定時はデフォルト値を使用
-SECRET_KEY = os.getenv(
-    "SECRET_KEY", "iu8hlc4iak8ycbk4ayb6c0ilua8bu2fc7hnl4h6au9llbnubn11uhuohoh3uoh3zounh"
-)
+
+# 署名鍵。
+# 既定値を持たせるとリポジトリ上の鍵で署名され、誰でもトークンを偽造できる。
+# そのため未設定なら起動時に落とす。
+SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY:
+    raise RuntimeError(
+        "環境変数 SECRET_KEY が設定されていません。"
+        "JWTの署名鍵のため、必ず設定してください（docker-compose.yml の api サービス）。"
+    )
+
+# アクセストークンの有効期限
+ACCESS_TOKEN_EXPIRE = timedelta(days=30)
+
+# 未認証時に返すヘッダ（RFC 6750）
+UNAUTHORIZED_HEADERS = {"WWW-Authenticate": "Bearer"}
 
 
-def create_access_token(db: Session, personal_id: str, expires_delta: timedelta):
-    user = db.query(Users).filter(Users.personal_id == personal_id).first()
-    expires = datetime.now() + expires_delta
+def jst() -> datetime:
+    """JSTタイムゾーンで現在時刻を返す"""
+    return datetime.now(ZoneInfo("Asia/Tokyo"))
+
+
+def create_access_token(
+    user: Users,
+    store_ids: list[int] | None,
+    expires_delta: timedelta = ACCESS_TOKEN_EXPIRE,
+):
+    """ログイン済みユーザーのアクセストークンを発行する
+
+    呼び出し元が認証済みのユーザーを渡す前提のため、ここではDBを引き直さない。
+    担当店舗（store_ids）も呼び出し元が解決して渡す
+    （system.permissions.resolve_store_ids）。None は全店舗を表す。
+
+    store_ids は画面表示（担当店舗の初期選択など）のために載せるものであり、
+    権限判定には使わない。判定は毎リクエストDBを引き直す Actor が行う。
+
+    exp はタイムゾーン付きで作る。naiveなdatetimeはUTCとして解釈されるため、
+    コンテナのTZ設定次第で有効期限がずれてしまう。
+    """
     payload = {
         "id": user.id,
         "personal_id": user.personal_id,
         "user_name": user.user_name,
         "role": user.role,
         "store_id": user.store_id,
+        "store_ids": store_ids,
         "is_active": user.is_active,
-        "exp": expires,
+        "exp": jst() + expires_delta,
     }
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 
-def get_current_user(token: HTTPAuthorizationCredentials = Security(security)):
+def get_current_user(
+    token: HTTPAuthorizationCredentials | None = Security(security),
+) -> DecodedToken:
+    """トークンを検証してログインユーザーの情報を返す
+
+    ここで見るのは「トークンとして正しいか」だけ。
+    アカウントが今も有効かどうかと権限は system.permissions が確認する。
+    """
+    if token is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="ログインが必要です",
+            headers=UNAUTHORIZED_HEADERS,
+        )
+
     try:
         payload = jwt.decode(token.credentials, SECRET_KEY, algorithms=[ALGORITHM])
-        user_id = payload.get("id")
-        personal_id = payload.get("personal_id")
-        user_name = payload.get("user_name")
-        role = payload.get("role")
-        store_id = payload.get("store_id")
-        is_active = payload.get("is_active")
-        expires = payload.get("exp")
-        if personal_id is None or user_id is None:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Invalid authentication credentials",
-            )
-        return DecodedToken(
-            user_id=user_id,
-            personal_id=personal_id,
-            user_name=user_name,
-            role=role,
-            store_id=store_id,
-            is_active=is_active,
-            expires=expires,
-        )
     except JWTError:
+        # 期限切れ・改ざん・署名不一致はいずれも「認証できない」＝401
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Invalid token or expired token",
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="トークンが不正か、有効期限が切れています",
+            headers=UNAUTHORIZED_HEADERS,
         )
 
-
-def require_roles(*allowed_roles: str):
-    """指定したロールのみ許可する依存関数を生成する
-
-    SPECIFICATION.mdのロール定義に基づく:
-      - admin    : すべての機能
-      - staff    : 予約・スケジュールの参照と更新
-      - readonly : 参照のみ
-
-    使用例:
-        AdminDependency = Annotated[DecodedToken, Depends(require_roles("admin"))]
-    """
-
-    def checker(
-        login_user: DecodedToken = Depends(get_current_user),
-    ) -> DecodedToken:
-        if not login_user.is_active:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="このアカウントは無効化されています",
-            )
-        if login_user.role not in allowed_roles:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="この操作を行う権限がありません",
-            )
-        return login_user
-
-    return checker
-
-
-# 管理者のみ（マスタ管理・ユーザー管理）
-require_admin = require_roles("admin")
-# 更新系（readonlyは不可）
-require_staff = require_roles("admin", "staff")
-# 参照系（ログイン済みなら全ロール可）
-require_viewer = require_roles("admin", "staff", "readonly")
-
-
-# timedelta(days=30)
-def encode_jwt(db: Session, user: dict):
-    user = db.query(Users).filter(Users.personal_id == user["personal_id"]).first()
-    expires = datetime.now() + timedelta(days=30)
-    payload = {
-        "id": user.id,
-        "personal_id": user.personal_id,
-        "user_name": user.user_name,
-        "role": user.role,
-        "store_id": user.store_id,
-        "is_active": user.is_active,
-    }
-    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
-
-
-def decode_jwt(token):
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        # return payload['sub']
-        return payload
-    except jwt.ExpiredSignatureError:
+    user_id = payload.get("id")
+    personal_id = payload.get("personal_id")
+    if user_id is None or personal_id is None:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="The JWT has expired"
-        )
-    except jwt.InvalidTokenError as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="JWT is not valid"
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="トークンの内容が不正です",
+            headers=UNAUTHORIZED_HEADERS,
         )
 
-
-# アクセストークン確認用 デコードした内容を返す
-def verify_jwt(request):
-    token = request.cookies.get("access_token")
-    if not token:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="No JWT exist: may not set yet or deleted",
-        )
-
-    if token.startswith("Bearer "):
-        token = token.replace("Bearer ", "")
-
-    subject = decode_jwt(token)
-    return subject
-
-
-# アクセストークン更新
-def verify_update_jwt(db: Session, request):
-    subject = verify_jwt(request)
-    new_token = encode_jwt(db, subject)
-    return new_token
-
-
-# csrfトークン更新
-def verify_csrf_update_jwt(db: Session, request, csrf_protect):
-    csrf_token = csrf_protect.get_csrf_from_headers(request.headers)
-    csrf_protect.validate_csrf(csrf_token)
-    subject = verify_jwt(request)
-    new_token = encode_jwt(db, subject)
-    return new_token
+    return DecodedToken(
+        user_id=user_id,
+        personal_id=personal_id,
+        user_name=payload.get("user_name"),
+        role=payload.get("role"),
+        store_id=payload.get("store_id"),
+        store_ids=payload.get("store_ids"),
+        is_active=payload.get("is_active"),
+        expires=payload.get("exp"),
+    )

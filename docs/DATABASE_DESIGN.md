@@ -3,7 +3,8 @@
 制服販売会社の採寸予約管理システム
 
 **作成日**: 2026-08-01  
-**バージョン**: 1.0.0
+**最終更新**: 2026-08-28  
+**バージョン**: 1.1.0
 
 ---
 
@@ -19,6 +20,7 @@
 
 ```
 users (ユーザーマスタ)
+  ↓ user_stores (ユーザー担当店舗関連) → stores (店舗マスタ)
   ↓ created_by
 projects (プロジェクトマスタ)
   ↓ ↑ ↑
@@ -47,8 +49,8 @@ schedules (スケジュールテーブル) → stores
 | email | メールアドレス | VARCHAR(100) | YES | NULL | メールアドレス |
 | password | パスワード | VARCHAR(100) | NO | - | パスワード（ハッシュ化） |
 | salt | ソルト | VARCHAR(100) | NO | - | パスワードソルト |
-| role | 権限 | ENUM('admin', 'staff', 'readonly') | NO | 'readonly' | ユーザー権限（管理者/スタッフ/閲覧のみ） |
-| store_id | 所属店舗ID | INT | YES | NULL | 所属店舗ID（外部キー） |
+| role | 権限 | ENUM('super_admin', 'admin', 'staff', 'readonly') | NO | 'readonly' | ユーザー権限（下記「権限の考え方」を参照） |
+| store_id | 所属店舗ID | INT | YES | NULL | 所属店舗ID（表示用の主店舗。権限の対象店舗は user_stores が持つ） |
 | is_active | 有効フラグ | BOOLEAN | NO | TRUE | アカウント有効フラグ |
 | icon | アイコンURL | VARCHAR(500) | YES | NULL | プロフィール画像URL |
 | deleted_at | 削除日時 | DATETIME | YES | NULL | 論理削除日時 |
@@ -62,6 +64,44 @@ schedules (スケジュールテーブル) → stores
 - UNIQUE KEY (user_name)
 - INDEX (store_id)
 - INDEX (deleted_at)
+
+**権限の考え方**:
+
+権限は「ロール（何ができるか）」と「担当店舗（どの店舗のデータに触れるか）」の
+2軸で決まります。ロールは上下関係を持つ階層で、上位は下位の操作をすべて行えます。
+
+| ロール | 日本語名 | できること | 対象店舗 |
+|-------|---------|-----------|---------|
+| super_admin | システム管理者 | 会社マスタの管理、adminユーザーの作成 | 全店舗 |
+| admin | システム利用責任者 | プロジェクト作成、マスタ管理、予約・スケジュールの更新 | 全店舗 |
+| staff | 店舗責任者 | 予約・スケジュールの参照と更新 | user_stores の店舗のみ |
+| readonly | 閲覧のみ | 予約・スケジュールの参照 | user_stores の店舗のみ |
+| （未ログイン） | お客様 | 予約の登録・照会 | - |
+
+- `super_admin` / `admin` は全店舗が対象のため、`user_stores` にレコードを持ちません
+- `staff` / `readonly` は `user_stores` に最低1件の登録が必要です
+  （0件だと、ログインできるのに何も参照できないユーザーになるため）
+
+---
+
+### 1-2. ユーザー担当店舗テーブル (user_stores)
+
+**概要**: ユーザーが操作・参照できる店舗を管理します。1ユーザーが複数店舗を担当できます。
+
+| カラム名 | 日本語名 | 型 | NULL | デフォルト | 説明 |
+|---------|---------|---|------|-----------|-----|
+| user_id | ユーザーID | INT | NO | - | ユーザーID（外部キー） |
+| store_id | 店舗ID | INT | NO | - | 店舗ID（外部キー） |
+| created_at | 作成日時 | DATETIME | NO | CURRENT_TIMESTAMP | 作成日時 |
+
+**インデックス**:
+- PRIMARY KEY (user_id, store_id)
+- INDEX (store_id)
+
+**運用ルール**:
+- `users.store_id`（所属店舗）は画面表示用であり、権限判定には使いません
+- 権限判定は必ずこのテーブルを参照します
+- ユーザーまたは店舗が物理削除された場合、関連レコードも削除されます（ON DELETE CASCADE）
 
 ---
 
@@ -293,6 +333,16 @@ schedules (スケジュールテーブル) → stores
 ### 外部キー制約
 
 ```sql
+-- user_stores → users / stores
+-- 中間テーブルのため、親が消えたら関連も消す
+ALTER TABLE user_stores
+ADD CONSTRAINT fk_user_stores_user_id
+FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+
+ALTER TABLE user_stores
+ADD CONSTRAINT fk_user_stores_store_id
+FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE;
+
 -- users → stores
 ALTER TABLE users
 ADD CONSTRAINT fk_users_store_id 
@@ -418,7 +468,18 @@ ON reservations(phone, deleted_at);
 例: STO-20260801-0001
 ```
 
-### 5. ステータス遷移ルール
+### 5. 権限と担当店舗
+
+- ロールの強さは `super_admin > admin > staff > readonly`
+- API側の権限判定はトークンの値ではなく、リクエストごとにDBの
+  `users.role` と `user_stores` を引き直して行う
+  （権限を落としてもトークンが切れるまで旧権限で操作できてしまうのを防ぐため）
+- 担当外の店舗のデータを要求された場合は 403 ではなく 404 を返す
+  （403だと、そのIDのデータが存在すること自体が分かってしまうため）
+
+---
+
+### 6. ステータス遷移ルール
 
 **予約ステータス (reservations.status)**:
 ```

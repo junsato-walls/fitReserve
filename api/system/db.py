@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
 # DBへの接続設定
 from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import declarative_base, sessionmaker
 from dotenv import load_dotenv
 import os
 
@@ -32,17 +31,17 @@ if USE_SSL:
 ENGINE = create_engine(
     DATABASE_URL,
     connect_args=ssl_args if USE_SSL else {},
-    echo=True,  # 開発時のみ True
+    # SQLログ。既定は出さない（本番でログが溢れ、性能にも響くため）
+    echo=os.getenv("SQL_ECHO", "false").lower() == "true",
     pool_size=10,  # コネクションプールサイズ
     max_overflow=20,  # 最大オーバーフロー接続数
     pool_pre_ping=True,  # 接続前に疎通確認
 )
 
-# modelで使用する
-Base = declarative_base()
-
 # SQL接続
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=ENGINE)
+
+# modelで使用する
 Base = declarative_base()
 
 

@@ -36,9 +36,9 @@ Pythonライブラリが必要な場合：
 ## 依頼例
 
 ```
-api/routers/admin/配下に[機能名]エンドポイントを作成
-- 既存パターンに従う
-- スキーマはapi/schemas/に作成
+api/router/admin/配下に[機能名]エンドポイントを作成
+- 既存パターンに従う（router → usecase → repository の層構成）
+- スキーマはapi/schema/に作成
 ```
 
 ```

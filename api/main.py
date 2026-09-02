@@ -9,7 +9,7 @@ from fastapi import FastAPI, Request
 from starlette.middleware.cors import CORSMiddleware
 
 # ローカル
-from system.api_router import api_router
+from router import api_router
 
 app = FastAPI()
 origins = ["http://localhost:3000"]

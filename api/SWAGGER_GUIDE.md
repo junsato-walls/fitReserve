@@ -4,53 +4,99 @@
 
 http://localhost:8000/docs
 
+---
+
+## 🔑 テストアカウント
+
+パスワードは**全アカウント共通で `password`** です（`docker/postgres/initdb.d/02_testdata.sql`）。
+
+| personal_id | ロール | 担当店舗 | 用途 |
+|---|---|---|---|
+| SYS001 | super_admin | 全店舗 | 会社マスタ管理、adminユーザーの作成 |
+| ADM001 | admin | 全店舗 | マスタ管理、プロジェクト作成 |
+| ADM002 | admin | 全店舗 | エリアマネージャー |
+| EMP001 | staff | 渋谷店・新宿店 | 複数店舗を担当するケースの確認用 |
+| EMP003 | readonly | 横浜店 | 参照のみのケースの確認用 |
+| EMP008 | staff | 新宿店 | 無効アカウント（ログインできないことの確認用） |
+
+**新規登録（サインアップ）はありません。** 認証不要でロールを指定してユーザーを作れると、
+誰でも管理者アカウントを作成できてしまうためです。
+ユーザーの作成は `POST /admin/users`（admin以上）で行います。
+
+---
+
 ## 🚀 クイックスタート
 
-### 1. 新規ユーザー登録（サインアップ）
+### 1. ログイン
 
-**POST /signup** を使って新規ユーザーを作成します。
+**POST /auth/login** でアクセストークンを取得します。
 
-1. `POST /signup` セクションを展開
-2. **Try it out** をクリック
-3. サンプルデータが自動入力されます:
+1. `POST /auth/login` を展開 → **Try it out**
+2. サンプルデータが自動入力されます:
    ```json
    {
-     "personal_id": "staff001",
-     "user_name": "佐藤一郎",
-     "name_kana": "サトウイチロウ",
-     "email": "sato@example.com",
-     "role": "staff",
-     "store_id": 1,
-     "is_active": true,
-     "password": "password123"
+     "personal_id": "ADM001",
+     "password": "password"
    }
    ```
-4. **Execute** をクリック
-5. レスポンスでユーザーIDが返されます
+3. **Execute** → レスポンスの `access_token` をコピー
 
-### 2. ログイン（認証）
+### 2. Swagger UI に認証を通す
 
-**POST /login** でログインしてトークンを取得します。
+1. 画面右上の **Authorize** をクリック
+2. コピーした `access_token` を貼り付けて **Authorize**
+3. 以降のリクエストに `Authorization: Bearer ...` が自動で付きます
 
-1. `POST /login` セクションを展開
-2. **Try it out** をクリック
-3. サンプルデータが自動入力されます:
-   ```json
-   {
-     "personal_id": "staff001",
-     "password": "password123"
-   }
-   ```
-4. **Execute** をクリック
-5. アクセストークンが返されます
+トークンの中身は **GET /auth/me** で確認できます（`role` と担当店舗 `store_ids`）。
 
-### 3. 各種マスタデータの登録
+---
 
-#### 店舗登録（管理者のみ）
+## 🔐 権限の考え方
 
-**POST /admin/stores** で店舗を登録します。
+エンドポイントはURLのプレフィックスで必要な権限が決まります（`api/routers/__init__.py`）。
 
-サンプルデータ:
+| プレフィックス | 必要な権限 | 担当店舗の絞り込み |
+|---|---|---|
+| `/auth` | なし | - |
+| `/public` | なし | - |
+| （なし） | readonly 以上 | **あり** |
+| `/admin` | admin 以上 | なし（全店舗） |
+| `/sysadmin` | super_admin | なし（全店舗） |
+
+- ロールは階層です（`super_admin > admin > staff > readonly`）。上位は下位の操作をすべて行えます
+- `staff` / `readonly` は `user_stores` に登録された店舗のデータしか見えません
+- **担当外の店舗のデータは 403 ではなく 404** が返ります（IDの総当たりで存在を知られないため）
+- 未ログインは 401、権限不足は 403 です
+
+確認例: `EMP001`（渋谷店・新宿店）でログインして `GET /reservations` を実行すると、
+その2店舗の予約しか返りません。`ADM001` なら全店舗が返ります。
+
+---
+
+## 📝 主なリクエストのサンプル
+
+### 会社登録（super_admin のみ）
+
+**POST /sysadmin/companies**
+
+```json
+{
+  "slug": "example-co",
+  "company_code": "C002",
+  "name": "サンプル洋服株式会社",
+  "name_kana": "サンプルヨウフク",
+  "postal_code": "100-0001",
+  "address": "東京都千代田区千代田1-1-1",
+  "phone": "03-1234-5678"
+}
+```
+
+`slug` は予約URL `/[company_slug]/[project_id]/[store_id]` の先頭に入ります（英小文字・数字・ハイフン）。
+
+### 店舗登録（admin以上）
+
+**POST /admin/stores**
+
 ```json
 {
   "store_code": "STORE001",
@@ -65,55 +111,85 @@ http://localhost:8000/docs
   "business_hours_end": "18:00:00",
   "regular_holiday": "水曜日",
   "description": "東京エリアの本店です",
-  "is_enabled": true
+  "is_enabled": true,
+  "school_ids": [1, 2]
 }
 ```
 
-#### 学校登録（管理者のみ）
+`school_ids` はその店舗が制服を**取り扱う学校**です（`store_schools`）。
+顧客の予約フォームは「店舗を選んでから学校を選ぶ」流れなので、ここが空の店舗は学校を選べません。
 
-**POST /admin/schools** で学校を登録します。
+### 学校登録（admin以上）
 
-サンプルデータ:
+**POST /admin/schools**
+
 ```json
 {
   "school_code": "SCH001",
   "name": "東京第一中学校",
   "name_kana": "トウキョウダイイチチュウガッコウ",
-  "school_type": "junior_high",
+  "school_divisions_id": 2,
   "postal_code": "100-0001",
   "address": "東京都千代田区千代田2-1-1",
   "phone": "03-2345-6789",
-  "description": "千代田区の中学校",
   "is_enabled": true
 }
 ```
 
-#### プロジェクト登録（管理者のみ）
+`school_divisions_id` は学校区分マスタのIDです（`GET /admin/school-divisions` で取得）。
 
-**POST /admin/projects** でプロジェクトを登録します。
+### プロジェクト登録（admin以上）
 
-サンプルデータ:
+**POST /admin/projects**
+
 ```json
 {
+  "company_id": 1,
   "project_code": "PRJ2026",
   "name": "2026年度春季採寸会",
   "description": "新入生向け制服採寸プロジェクト",
-  "start_date": "2026-03-01",
-  "end_date": "2026-03-31",
   "reservation_interval": 30,
   "is_enabled": true,
   "created_by": 1,
   "updated_by": 1,
   "store_ids": [1, 2],
-  "school_ids": [1, 2, 3]
+  "school_divisions": [
+    { "school_divisions_id": 1, "start_date": "2026-03-01", "end_date": "2026-03-31" },
+    { "school_divisions_id": 2, "start_date": "2026-03-10", "end_date": "2026-04-10" }
+  ]
 }
 ```
 
-#### スケジュール登録（スタッフ）
+- **予約受付期間はプロジェクトではなく学校区分ごとに持ちます**。`school_divisions` に無い区分は受付対象外です
+- `store_ids` を空にすると全店舗が対象になります
+- 対象の学校はプロジェクトではなく**店舗**が持ちます（上記の `school_ids`）
 
-**POST /schedules** で予約枠を登録します。
+### ユーザー登録（admin以上）
 
-サンプルデータ:
+**POST /admin/users**
+
+```json
+{
+  "personal_id": "staff001",
+  "user_name": "佐藤一郎",
+  "name_kana": "サトウイチロウ",
+  "email": "sato@example.com",
+  "role": "staff",
+  "store_id": 1,
+  "store_ids": [1, 2],
+  "is_active": true,
+  "password": "password123"
+}
+```
+
+- `store_ids` が**権限の対象店舗**です。`staff` / `readonly` は最低1件必要（0件だとログインできても何も見えません）
+- `store_id` は所属店舗で、画面表示に使うだけです
+- `role` に `admin` / `super_admin` を指定できるのは **super_admin のみ**（admin が実行すると403）
+
+### スケジュール登録（staff以上）
+
+**POST /schedules**
+
 ```json
 {
   "store_id": 1,
@@ -128,11 +204,12 @@ http://localhost:8000/docs
 }
 ```
 
-### 4. 予約登録（顧客向け・認証不要）
+担当外の店舗を指定すると404になります。
 
-**POST /public/reservations** で予約を登録します。
+### 予約登録（認証不要・顧客向け）
 
-サンプルデータ:
+**POST /public/reservations**
+
 ```json
 {
   "project_id": 1,
@@ -154,133 +231,124 @@ http://localhost:8000/docs
 }
 ```
 
+登録には次の条件をすべて満たす必要があります。
+- 指定日時に空きのある `schedules` のレコードがある
+- その店舗が指定学校の制服を取り扱っている（`store_schools`）
+- 指定学校の区分がプロジェクトの受付期間内（`project_school_divisions`）
+
+---
+
 ## 📋 APIエンドポイント一覧
 
-### 認証・ユーザー管理
-- `POST /signup` - サインアップ（新規ユーザー登録）
-- `POST /login` - ログイン
-- `POST /logout` - ログアウト
-- `GET /admin/users` - ユーザー一覧
-- `POST /admin/users` - ユーザー作成
-- `PUT /admin/users/{id}` - ユーザー更新
-- `DELETE /admin/users/{id}` - ユーザー削除
+### 認証（認証不要）
+- `POST /auth/login` - ログイン（アクセストークン発行）
+- `POST /auth/logout` - ログアウト
+- `GET /auth/me` - ログイン中のユーザー情報
 
-### 店舗管理（管理者専用）
-- `GET /admin/stores` - 店舗一覧
-- `GET /admin/stores/{id}` - 店舗詳細
-- `POST /admin/stores` - 店舗作成
-- `PUT /admin/stores/{id}` - 店舗更新
-- `DELETE /admin/stores/{id}` - 店舗削除
+### 公開API（認証不要・顧客向け）
+- `GET /public/projects/{id}` - 予約受付用のプロジェクト情報
+- `GET /public/stores` / `GET /public/stores/{id}` - 店舗
+- `GET /public/schools` - 学校（店舗・プロジェクトで絞り込み）
+- `GET /public/school-divisions` - 学校区分
+- `GET /public/schedules` - 空き状況
+- `POST /public/reservations` - 予約登録
+- `GET /public/reservations/{reservation_number}` - 予約番号で照会
 
-### 学校管理（管理者専用）
-- `GET /admin/schools` - 学校一覧
-- `GET /admin/schools/{id}` - 学校詳細
-- `POST /admin/schools` - 学校作成
-- `PUT /admin/schools/{id}` - 学校更新
-- `DELETE /admin/schools/{id}` - 学校削除
+### 予約管理（readonly以上・担当店舗のみ）
+- `GET /reservations` - 予約一覧
+- `GET /reservations/{id}` - 予約詳細
+- `PUT /reservations/{id}` - 予約更新（staff以上）
+- `DELETE /reservations/{id}` - 予約キャンセル（staff以上）
 
-### プロジェクト管理（管理者専用）
-- `GET /admin/projects` - プロジェクト一覧
-- `GET /admin/projects/{id}` - プロジェクト詳細
-- `POST /admin/projects` - プロジェクト作成
-- `PUT /admin/projects/{id}` - プロジェクト更新
-- `DELETE /admin/projects/{id}` - プロジェクト削除
-
-### スケジュール管理（認証必須）
+### スケジュール管理（readonly以上・担当店舗のみ）
 - `GET /schedules` - スケジュール一覧
 - `GET /schedules/availability` - 空き状況確認
 - `GET /schedules/{id}` - スケジュール詳細
-- `POST /schedules` - スケジュール作成
-- `PUT /schedules/{id}` - スケジュール更新
-- `DELETE /schedules/{id}` - スケジュール削除
+- `POST /schedules` - スケジュール作成（staff以上）
+- `PUT /schedules/{id}` - スケジュール更新（staff以上）
+- `DELETE /schedules/{id}` - スケジュール削除（staff以上）
 
-### 予約管理
+### マスタ管理（admin以上）
+- `GET /admin/companies` - 会社一覧（プロジェクトの所属会社の選択用）
+- `GET|POST /admin/stores`, `GET|PUT|DELETE /admin/stores/{id}` - 店舗
+- `GET|POST /admin/schools`, `GET|PUT|DELETE /admin/schools/{id}` - 学校
+- `GET /admin/school-divisions` - 学校区分（参照のみの固定マスタ）
+- `GET|POST /admin/projects`, `GET|PUT|DELETE /admin/projects/{id}` - プロジェクト
+- `GET|POST /admin/users`, `GET|PUT|DELETE /admin/users/{id}` - ユーザー
 
-#### 公開API（認証不要）
-- `POST /public/reservations` - 予約登録
-- `GET /public/reservations/{reservation_number}` - 予約番号で検索
+### システム管理（super_admin のみ）
+- `GET|POST /sysadmin/companies` - 会社一覧・作成
+- `GET|PUT|DELETE /sysadmin/companies/{id}` - 会社詳細・更新・削除
 
-#### 認証必須API（スタッフ向け）
-- `GET /reservations` - 予約一覧
-- `GET /reservations/{id}` - 予約詳細
-- `PUT /reservations/{id}` - 予約更新
-- `DELETE /reservations/{id}` - 予約キャンセル
+---
 
 ## 🎯 動作確認フロー
 
-### 完全な予約フローの確認
+1. **ログイン** — `POST /auth/login` を `SYS001` / `password` で実行し、**Authorize** にトークンを設定
+2. **会社登録** — `POST /sysadmin/companies`
+3. **ADM ユーザーでログインし直す** — 以降はマスタ管理なので `ADM001` で十分
+4. **店舗登録** — `POST /admin/stores`（`school_ids` で取り扱い学校を指定）
+5. **学校登録** — `POST /admin/schools`
+6. **プロジェクト登録** — `POST /admin/projects`（`school_divisions` で区分ごとの受付期間を指定）
+7. **スタッフ登録** — `POST /admin/users`（`role: staff`, `store_ids` を指定）
+8. **スケジュール登録** — `POST /schedules` で予約枠を作成
+9. **空き状況確認** — `GET /public/schedules`（顧客が見る画面と同じデータ）
+10. **予約登録** — `POST /public/reservations`
+11. **予約一覧確認** — 7で作ったスタッフでログインし直して `GET /reservations`。
+    **担当店舗の予約だけが返ること**を確認する
 
-1. **管理者でサインアップ**
-   - `POST /signup` で管理者ユーザーを作成（role: admin）
-
-2. **ログイン**
-   - `POST /login` でログイン
-
-3. **店舗登録**
-   - `POST /admin/stores` で店舗を作成
-
-4. **学校登録**
-   - `POST /admin/schools` で学校を作成
-
-5. **プロジェクト登録**
-   - `POST /admin/projects` でプロジェクトを作成
-
-6. **スタッフ登録**
-   - `POST /admin/users` でスタッフユーザーを作成（role: staff, store_id指定）
-
-7. **スケジュール登録**
-   - `POST /schedules` で予約枠を作成
-
-8. **空き状況確認**
-   - `GET /schedules/availability` で空き状況を確認
-
-9. **予約登録（顧客として）**
-   - `POST /public/reservations` で予約を作成
-
-10. **予約一覧確認**
-    - `GET /reservations` で予約一覧を確認
+---
 
 ## 💡 Tips
 
 ### サンプルデータの活用
-- すべてのPOST/PUTエンドポイントにサンプルデータが設定済み
-- **Try it out** ボタンを押すだけで自動入力されます
+- 主なPOST/PUTエンドポイントにはサンプルデータが設定済みです
+- **Try it out** を押すと自動入力されます
 
 ### エラーが出た場合
-1. データベースの状態を確認
-   ```bash
-   docker exec -it fitreserve_db psql -U fitreserve_user -d fitreserve_db
-   ```
 
-2. テーブルのデータを確認
-   ```sql
-   SELECT * FROM stores;
-   SELECT * FROM schools;
-   SELECT * FROM projects;
-   SELECT * FROM users;
-   ```
+| ステータス | 意味 | 主な原因 |
+|---|---|---|
+| 401 | 未認証 | トークン未設定・期限切れ。**Authorize** をやり直す |
+| 403 | 権限不足 | ロールが足りない。上位ロールでログインし直す |
+| 404 | 見つからない | IDが誤り。または**担当外の店舗のデータ**を要求している |
+| 400 | 入力エラー | 重複するコード、担当店舗が空、受付期間外など |
+| 422 | 形式エラー | 必須項目の未入力・型違い。`detail` に該当項目が出る |
 
-3. コンテナを再起動
-   ```bash
-   docker-compose restart
-   ```
+データベースの確認:
+```bash
+docker exec -it fitreserve_db psql -U fitreserve_user -d fitreserve_db
+```
+```sql
+SELECT id, personal_id, role FROM users;
+SELECT * FROM user_stores;   -- 担当店舗
+SELECT * FROM stores;
+```
 
-### 学校区分（school_type）
-- `elementary` - 小学校
-- `junior_high` - 中学校
-- `high` - 高校
-- `other` - その他
+コンテナの再起動:
+```bash
+docker compose restart api
+```
 
 ### ユーザーロール（role）
-- `admin` - 管理者（全権限）
-- `staff` - スタッフ（店舗限定）
-- `readonly` - 閲覧専用
+- `super_admin` - システム管理者（会社マスタ、adminユーザーの作成）
+- `admin` - システム利用責任者（マスタ管理、プロジェクト作成、全店舗の予約更新）
+- `staff` - 店舗責任者（担当店舗の予約・スケジュールの更新）
+- `readonly` - 閲覧専用（担当店舗の予約の参照）
+
+### 学校区分（school_divisions_id）
+- `1` - 小学校
+- `2` - 中学校
+- `3` - 高等学校
+- `4` - その他
 
 ### 予約ステータス（status）
 - `pending` - 未確認
 - `confirmed` - 確定
 - `completed` - 完了
 - `cancelled` - キャンセル
+
+`completed` からは変更できません。`pending` から直接 `completed` にもできません（先に `confirmed` へ）。
 
 ### 性別（gender）
 - `male` - 男性
@@ -290,4 +358,4 @@ http://localhost:8000/docs
 ---
 
 **作成日**: 2026-08-01  
-**最終更新**: 2026-08-01
+**最終更新**: 2026-08-31
