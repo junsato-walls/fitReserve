@@ -1,10 +1,17 @@
 "use client"
 
 import { Table } from "@/components/base/display/Table";
+import {
+    Timetable,
+    type BadgeTone,
+    type TimetableItem,
+    type TimetableRange,
+} from "@/components/base/display/Timetable";
 import { Select } from "@/components/base/forms/Select";
 import { Modal } from "@/components/base/overlays/Modal";
 import { scheduleSchema, validate } from "@/lib/validation"
 import type { StorePublic } from "@/types/reservation"
+import { getCurrentUser } from "@/api/Auth"
 import { getStores } from "@/api/Reservation"
 import {
     createSchedule,
@@ -17,10 +24,34 @@ import { Button } from "@/components/base/buttons/Button";
 import { Card } from "@/components/base/display/Card";
 import { Input } from "@/components/base/forms/Input";
 import type { Schedule } from "@/types/schedule"
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 
-/** Radix Select は空文字のvalueを許可しないため、「すべて」を表す値を用意する */
+/** Select は空文字のvalueを許可しないため、「すべて」を表す値を用意する */
 const ALL_FILTER = "all"
+
+/** 予約が入っている枠を動かすと、予約だけが元の日時に取り残されるため禁止する */
+const LOCKED_REASON =
+    "予約が入っている枠は移動できません。日時を変える場合は予約側で変更してください"
+
+/** JSTの今日をYYYY-MM-DDで返す */
+function todayInJst(): string {
+    return new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Tokyo" }).format(new Date())
+}
+
+/** YYYY-MM-DD を日数分ずらす */
+function shiftDate(date: string, days: number): string {
+    const shifted = new Date(`${date}T00:00:00`)
+    shifted.setDate(shifted.getDate() + days)
+    return new Intl.DateTimeFormat("sv-SE").format(shifted)
+}
+
+/** 曜日つきの見出し（例: 2026-03-15（日）） */
+function formatDateLabel(date: string): string {
+    const weekday = ["日", "月", "火", "水", "木", "金", "土"][
+        new Date(`${date}T00:00:00`).getDay()
+    ]
+    return `${date}（${weekday}）`
+}
 
 export const StaffScheduleList = () => {
     const [loading, setLoading] = useState(true)
@@ -29,6 +60,14 @@ export const StaffScheduleList = () => {
     const [schedules, setSchedules] = useState<Schedule[]>([])
     const [stores, setStores] = useState<StorePublic[]>([])
     const [storeMap, setStoreMap] = useState<{ [key: number]: string }>({})
+
+    // 表示形式。タイムテーブルは1日分、一覧は期間で絞り込む
+    const [viewMode, setViewMode] = useState<"timetable" | "list">("timetable")
+    const [timetableDate, setTimetableDate] = useState<string>(todayInJst())
+    const [daySchedules, setDaySchedules] = useState<Schedule[]>([])
+    const [dayLoading, setDayLoading] = useState(false)
+    // 担当店舗。null は全店舗（admin以上）
+    const [myStoreIds, setMyStoreIds] = useState<number[] | null>(null)
 
     // フィルター
     const [storeFilter, setStoreFilter] = useState<string>(ALL_FILTER)
@@ -77,6 +116,10 @@ export const StaffScheduleList = () => {
             setStoreMap(map)
         }
 
+        // タイムテーブルの列は担当店舗に絞る（admin以上はnull＝全店舗）
+        const user = await getCurrentUser()
+        setMyStoreIds(user?.store_ids ?? null)
+
         setLoading(false)
     }
 
@@ -97,6 +140,132 @@ export const StaffScheduleList = () => {
         } else {
             setError(result.error || "スケジュール一覧の取得に失敗しました")
         }
+    }
+
+    /** タイムテーブル用に1日分だけ取得する（一覧の絞り込みとは独立させる） */
+    const fetchDaySchedules = useCallback(async (date: string) => {
+        setDayLoading(true)
+        // 1日分でも「店舗数 × 枠数」になるため、既定の100件では足りない。
+        // バックエンドの上限（MAX_LIMIT）まで引く
+        const result = await getSchedules({ date_from: date, date_to: date, limit: 500 })
+        setDayLoading(false)
+
+        if (result.success && result.data) {
+            setDaySchedules(result.data)
+        } else {
+            setError(result.error || "スケジュールの取得に失敗しました")
+        }
+    }, [])
+
+    useEffect(() => {
+        if (viewMode === "timetable") fetchDaySchedules(timetableDate)
+    }, [viewMode, timetableDate, fetchDaySchedules])
+
+    /** タイムテーブルの列。担当店舗のみを並べる */
+    const timetableColumns = useMemo(() => {
+        const visible = myStoreIds
+            ? stores.filter((store) => myStoreIds.includes(store.id))
+            : stores
+        return visible.map((store) => ({
+            id: store.id,
+            label: store.name,
+            description: `${daySchedules.filter((s) => s.store_id === store.id).length}件`,
+        }))
+    }, [stores, myStoreIds, daySchedules])
+
+    const timetableItems = useMemo<TimetableItem[]>(
+        () =>
+            daySchedules.map((schedule) => {
+                const remaining = schedule.capacity - schedule.reserved_count
+                let tone: BadgeTone = "success"
+                let label = `空き${remaining}／${schedule.capacity}`
+
+                if (!schedule.is_available) {
+                    tone = "neutral"
+                    label = "受付停止"
+                } else if (remaining <= 0) {
+                    tone = "danger"
+                    label = "満席"
+                } else if (remaining <= 2) {
+                    tone = "warning"
+                }
+
+                return {
+                    id: schedule.id,
+                    columnId: schedule.store_id,
+                    start: schedule.start_time,
+                    end: schedule.end_time,
+                    title: label,
+                    subtitle: schedule.memo ?? undefined,
+                    tone,
+                    // 予約済みの枠は動かせない
+                    locked: schedule.reserved_count > 0,
+                    lockedReason: LOCKED_REASON,
+                }
+            }),
+        [daySchedules]
+    )
+
+    /**
+     * ドラッグでの移動を確定する
+     *
+     * 先に画面を動かしてからAPIを呼ぶ。失敗したら元の位置へ戻す。
+     * 保存を待ってから描画すると、掴んだ枠が一瞬元に戻って見えるため。
+     */
+    const handleMove = async (scheduleId: number, next: TimetableRange) => {
+        const target = daySchedules.find((schedule) => schedule.id === scheduleId)
+        if (!target) return
+
+        setError(null)
+        setSuccess(null)
+
+        const moved: Schedule = {
+            ...target,
+            store_id: next.columnId,
+            start_time: next.start,
+            end_time: next.end,
+        }
+        setDaySchedules((prev) =>
+            prev.map((schedule) => (schedule.id === scheduleId ? moved : schedule))
+        )
+
+        const result = await updateSchedule(scheduleId, {
+            store_id: next.columnId,
+            schedule_date: timetableDate,
+            start_time: next.start,
+            end_time: next.end,
+        })
+
+        if (result.success) {
+            setSuccess("スケジュールを移動しました")
+            fetchDaySchedules(timetableDate)
+        } else {
+            // 元の位置へ戻す
+            setDaySchedules((prev) =>
+                prev.map((schedule) => (schedule.id === scheduleId ? target : schedule))
+            )
+            setError(result.error || "スケジュールの移動に失敗しました")
+        }
+    }
+
+    /** 空き時間のドラッグから新規作成ダイアログを開く */
+    const handleCreateFromRange = (range: TimetableRange) => {
+        setEditingSchedule(null)
+        setFormData({
+            store_id: range.columnId.toString(),
+            schedule_date: timetableDate,
+            start_time: range.start.substring(0, 5),
+            end_time: range.end.substring(0, 5),
+            capacity: "1",
+            is_available: true,
+            memo: "",
+        })
+        setIsDialogOpen(true)
+    }
+
+    const handleSelectItem = (scheduleId: number) => {
+        const target = daySchedules.find((schedule) => schedule.id === scheduleId)
+        if (target) handleEdit(target)
     }
 
     const handleSearch = () => {
@@ -174,7 +343,11 @@ export const StaffScheduleList = () => {
                     : "スケジュールを作成しました"
             )
             setIsDialogOpen(false)
-            fetchSchedules()
+            if (viewMode === "timetable") {
+                fetchDaySchedules(timetableDate)
+            } else {
+                fetchSchedules()
+            }
         } else {
             setError(result.error || "スケジュールの保存に失敗しました")
         }
@@ -191,7 +364,11 @@ export const StaffScheduleList = () => {
         if (result.success) {
             setSuccess("スケジュールを削除しました")
             setDeleteTarget(null)
-            fetchSchedules()
+            if (viewMode === "timetable") {
+                fetchDaySchedules(timetableDate)
+            } else {
+                fetchSchedules()
+            }
         } else {
             setError(result.error || "スケジュールの削除に失敗しました")
             setDeleteTarget(null)
@@ -217,6 +394,57 @@ export const StaffScheduleList = () => {
                 <Alert type="error" message={error} />
             )}
 
+            <div className="flex gap-2">
+                <Button
+                    variant={viewMode === "timetable" ? "primary" : "outline"}
+                    onClick={() => setViewMode("timetable")}
+                    label="タイムテーブル"
+                />
+                <Button
+                    variant={viewMode === "list" ? "primary" : "outline"}
+                    onClick={() => setViewMode("list")}
+                    label="一覧"
+                />
+            </div>
+
+            {viewMode === "timetable" ? (
+                <Card title={formatDateLabel(timetableDate)}>
+                    <div className="flex flex-wrap items-end gap-2 mb-4">
+                        <Button
+                            variant="outline"
+                            onClick={() => setTimetableDate(shiftDate(timetableDate, -1))}
+                            label="前の日"
+                        />
+                        <Button
+                            variant="outline"
+                            onClick={() => setTimetableDate(todayInJst())}
+                            label="今日"
+                        />
+                        <Button
+                            variant="outline"
+                            onClick={() => setTimetableDate(shiftDate(timetableDate, 1))}
+                            label="次の日"
+                        />
+                        <Input
+                            label="日付"
+                            type="date"
+                            value={timetableDate}
+                            onChange={(e) => setTimetableDate(e.target.value)}
+                        />
+                    </div>
+
+                    <Timetable
+                        columns={timetableColumns}
+                        items={timetableItems}
+                        loading={dayLoading}
+                        emptyMessage="この日のスケジュールはありません"
+                        onMove={handleMove}
+                        onCreate={handleCreateFromRange}
+                        onSelect={handleSelectItem}
+                    />
+                </Card>
+            ) : (
+            <>
             <Card title="検索フィルター">
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <Select
@@ -323,6 +551,8 @@ export const StaffScheduleList = () => {
                     ]}
                 />
             </Card>
+            </>
+            )}
 
             {/* 作成・編集ダイアログ */}
             <Modal

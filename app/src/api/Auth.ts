@@ -1,6 +1,7 @@
 'use server'
 
 import { api } from '@/lib/httpClient'
+import type { UserRole } from '@/types/admin'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 
@@ -18,8 +19,11 @@ export interface CurrentUser {
     id: number
     personal_id: string
     user_name: string
-    role: 'admin' | 'staff' | 'readonly'
+    role: UserRole
+    /** 所属店舗（表示用の主店舗）。権限の対象は store_ids */
     store_id: number | null
+    /** 担当店舗。null は全店舗（super_admin / admin） */
+    store_ids: number[] | null
     is_active: boolean
 }
 
@@ -60,12 +64,10 @@ export async function login(
         console.error("❌ [Auth Action] ログインエラー:", error);
 
         const message = error instanceof Error ? error.message : '';
-        // バックエンドは401時に "Incorrect personal_id" / "Incorrect password" を返す
-        if (message.includes('Incorrect')) {
-            return {
-                success: false,
-                error: "社員IDまたはパスワードが正しくありません"
-            };
+        // 認証失敗（401）と無効アカウント（403）はバックエンドの文言をそのまま見せる。
+        // 原因が利用者に伝わる文言のため、ここで丸めない。
+        if (message.includes('正しくありません') || message.includes('無効化')) {
+            return { success: false, error: message };
         }
 
         return {
@@ -135,6 +137,10 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
         user_name: String(payload.user_name ?? ''),
         role: (payload.role as CurrentUser['role']) ?? 'readonly',
         store_id: typeof payload.store_id === 'number' ? payload.store_id : null,
+        // null は全店舗。admin以上は担当店舗を持たない
+        store_ids: Array.isArray(payload.store_ids)
+            ? (payload.store_ids as number[])
+            : null,
         is_active: payload.is_active !== false,
     }
 }

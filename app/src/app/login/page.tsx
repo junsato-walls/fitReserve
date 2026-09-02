@@ -4,7 +4,6 @@ import { Alert } from "@/components/base/feedback/Alert";
 import { Button } from "@/components/base/buttons/Button";
 import { Card } from "@/components/base/display/Card";
 import { Input } from "@/components/base/forms/Input";
-import Link from "next/link"
 import { login } from "@/api/Auth"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
@@ -66,10 +65,7 @@ export default function LoginPage() {
           <Button type="submit" className="w-full" disabled={loading} label="ログイン" loadingLabel="ログイン中..." isLoading={loading} />
 
           <p className="text-center text-sm text-gray-600 dark:text-gray-300 mt-4">
-            アカウントをお持ちでないですか？{" "}
-            <Link href="/signup" className="text-blue-600 dark:text-blue-400 hover:underline">
-              新規登録
-            </Link>
+            アカウントは管理者が発行します。お持ちでない場合は管理者へお問い合わせください。
           </p>
         </form>
       </Card>

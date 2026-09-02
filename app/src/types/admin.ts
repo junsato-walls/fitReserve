@@ -178,14 +178,27 @@ export interface ProjectUpdate {
     school_divisions?: SchoolDivisionPeriod[]
 }
 
+/**
+ * ユーザーのロール（api/system/permissions.py の ROLE_LEVELS と対応）
+ *
+ * 上下関係を持つ階層で、上位は下位の操作をすべて行える。
+ * super_admin / admin は全店舗が対象、staff / readonly は担当店舗のみ。
+ */
+export type UserRole = "super_admin" | "admin" | "staff" | "readonly"
+
 export interface User {
     id: number
     personal_id: string
     user_name: string
     name_kana: string | null
     email: string | null
-    role: "admin" | "staff" | "readonly"
+    role: UserRole
+    /** 所属店舗（表示用の主店舗） */
     store_id: number | null
+    /** 所属店舗名（バックエンドのUserWithStoreが返す） */
+    store_name?: string | null
+    /** 担当店舗IDリスト。権限の対象はこちら（admin以上は空＝全店舗） */
+    store_ids: number[]
     is_active: boolean
     icon: string | null
     memo: string | null
@@ -200,8 +213,10 @@ export interface UserCreate {
     password: string
     name_kana?: string
     email?: string
-    role?: "admin" | "staff" | "readonly"
+    role?: UserRole
     store_id?: number
+    /** 担当店舗IDリスト。staff/readonly は最低1件必要 */
+    store_ids?: number[]
     is_active?: boolean
     icon?: string
     memo?: string
@@ -213,8 +228,10 @@ export interface UserUpdate {
     password?: string
     name_kana?: string
     email?: string
-    role?: "admin" | "staff" | "readonly"
+    role?: UserRole
     store_id?: number
+    /** 担当店舗IDリスト（指定時は全置換。未指定なら変更しない） */
+    store_ids?: number[]
     is_active?: boolean
     icon?: string
     memo?: string

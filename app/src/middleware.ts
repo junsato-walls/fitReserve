@@ -1,3 +1,4 @@
+import { hasMinRole as hasMinRoleLevel } from "@/lib/roles";
 import { NextRequest, NextResponse } from "next/server";
 
 type JwtPayload = {
@@ -5,11 +6,16 @@ type JwtPayload = {
   exp?: number;
 };
 
+/** トークンのロールが指定ロール以上かどうか */
+function hasMinRole(token: string, minimum: "admin" | "staff"): boolean {
+  return hasMinRoleLevel(decodeToken(token)?.role, minimum);
+}
+
 /**
  * JWTのペイロードを取り出す（署名検証は行わない）
  *
  * ここでの判定は画面遷移をわかりやすくするための入口チェックであり、
- * 実際の認可はバックエンド(system/auth.py の require_admin 等)が行う。
+ * 実際の認可はバックエンド(system/permissions.py の require_min_role 等)が行う。
  */
 function decodeToken(token: string): JwtPayload | null {
   try {
@@ -75,7 +81,6 @@ export function middleware(req: NextRequest) {
   if (
     pathname === "/" ||
     pathname.startsWith("/login") ||
-    pathname.startsWith("/signup") ||
     pathname.startsWith("/reservations") ||
     // 開発用のコンポーネントカタログ（本番ビルドでは page 側で404になる）
     pathname.startsWith("/dev") ||
@@ -108,8 +113,8 @@ export function middleware(req: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // ⑥ /admin配下は管理者のみ（SPECIFICATION.mdのロール定義に準拠）
-  if (pathname.startsWith("/admin") && decodeToken(token!)?.role !== "admin") {
+  // ⑥ /admin配下は admin 以上のみ（super_admin も含む）
+  if (pathname.startsWith("/admin") && !hasMinRole(token!, "admin")) {
     const staffUrl = req.nextUrl.clone();
     staffUrl.pathname = "/staff";
     return NextResponse.redirect(staffUrl);

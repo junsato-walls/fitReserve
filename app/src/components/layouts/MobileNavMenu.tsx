@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation"
 import { Avatar } from "@/components/base/display/Avatar"
 import { Modal } from "@/components/base/overlays/Modal"
 import { cn } from "@/lib/utils"
+import { hasMinRole } from "@/lib/roles"
 import { ADMIN_LINKS, STAFF_LINKS, type NavLink } from "./navLinks"
 import { ThemeToggle } from "./ThemeToggle"
 
@@ -97,7 +98,8 @@ export const MobileNavMenu = ({
             </div>
 
             {renderGroup("スタッフ機能", STAFF_LINKS)}
-            {role === "admin" && renderGroup("管理者機能", ADMIN_LINKS)}
+            {/* super_admin も管理者機能を使うため、一致比較ではなく階層で判定する */}
+            {hasMinRole(role, "admin") && renderGroup("管理者機能", ADMIN_LINKS)}
 
             {/* アカウント操作（PCでは UserMenu 側にある） */}
             <div className="border-t border-gray-200 dark:border-gray-700 pt-4 space-y-4">

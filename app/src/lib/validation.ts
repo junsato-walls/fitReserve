@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { SCOPED_ROLES, USER_ROLES } from "./roles"
 
 /**
  * 入力バリデーションスキーマ
@@ -121,7 +122,7 @@ export const projectSchema = z.object({
 
 // ---- ユーザー（api/schemas/generic/users.py）----
 
-export const USER_ROLES = ["admin", "staff", "readonly"] as const
+export { SCOPED_ROLES, USER_ROLES } from "./roles"
 
 const userBaseShape = {
     personal_id: z
@@ -135,8 +136,26 @@ const userBaseShape = {
     name_kana: optionalText(100, "フリガナ"),
     email: optionalText(100, "メールアドレス"),
     role: z.enum(USER_ROLES, { message: "ロールを選択してください" }),
+    store_ids: z.array(z.number().int().positive()),
     is_active: z.boolean(),
 }
+
+/**
+ * staff / readonly は担当店舗が最低1件必要
+ *
+ * 担当が0件だと、ログインできるのに何も参照できないユーザーができてしまう。
+ * （バックエンドの api/routers/admin/users.py も同じ検証をしている）
+ */
+const requireStores = <T extends { role: string; store_ids: number[] }>(
+    schema: z.ZodType<T>
+) =>
+    schema.refine(
+        (v) => !SCOPED_ROLES.includes(v.role) || v.store_ids.length > 0,
+        {
+            message: "スタッフと閲覧専用ユーザーには担当店舗が必要です",
+            path: ["store_ids"],
+        }
+    )
 
 const passwordRule = z
     .string()
@@ -144,16 +163,22 @@ const passwordRule = z
     .max(100, "パスワードは100文字以内で入力してください")
 
 /** 新規作成時はパスワード必須 */
-export const userCreateSchema = z.object({
-    ...userBaseShape,
-    password: passwordRule,
-})
+export const userCreateSchema = requireStores(
+    z.object({
+        ...userBaseShape,
+        password: passwordRule,
+    })
+)
 
 /** 更新時は未入力なら変更しない */
-export const userUpdateSchema = z.object({
-    ...userBaseShape,
-    password: passwordRule.optional().or(z.literal("").transform(() => undefined)),
-})
+export const userUpdateSchema = requireStores(
+    z.object({
+        ...userBaseShape,
+        password: passwordRule
+            .optional()
+            .or(z.literal("").transform(() => undefined)),
+    })
+)
 
 // ---- スケジュール（api/schemas/schedules.py）----
 

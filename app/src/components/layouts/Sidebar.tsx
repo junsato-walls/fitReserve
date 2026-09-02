@@ -1,6 +1,7 @@
 "use client"
 
 import { cn } from "@/lib/utils";
+import { getRoleLabel, hasMinRole } from "@/lib/roles";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ADMIN_LINKS, STAFF_LINKS } from "./navLinks";
@@ -17,7 +18,7 @@ export const Sidebar = ({ role = "staff" }: SidebarProps) => {
             <div className="p-6 border-b dark:border-gray-700">
                 <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">fitReserve</h2>
                 <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
-                    {role === "admin" ? "管理者" : "スタッフ"}
+                    {getRoleLabel(role)}
                 </p>
             </div>
 
@@ -47,7 +48,8 @@ export const Sidebar = ({ role = "staff" }: SidebarProps) => {
                     })}
                 </div>
 
-                {role === "admin" && (
+                {/* super_admin も管理者機能を使うため、一致比較ではなく階層で判定する */}
+                {hasMinRole(role, "admin") && (
                     <div className="mb-4">
                         <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">
                             管理者機能

@@ -4,17 +4,22 @@ import { Table } from "@/components/base/display/Table";
 import { Select } from "@/components/base/forms/Select";
 import { Modal } from "@/components/base/overlays/Modal";
 import { userCreateSchema, userUpdateSchema, validate } from "@/lib/validation"
+import { ROLE_LABELS, SCOPED_ROLES, getRoleLabel } from "@/lib/roles"
 import {
     createUser,
     deleteUser,
     getUsersAdmin,
     updateUser,
 } from "@/api/User"
+import { getCurrentUser } from "@/api/Auth"
+import { getStoresAdmin } from "@/api/Store"
 import { Alert } from "@/components/base/feedback/Alert";
 import { Button } from "@/components/base/buttons/Button";
 import { Card } from "@/components/base/display/Card";
+import { Checkbox } from "@/components/base/forms/Checkbox";
+import { CheckboxGroup } from "@/components/base/forms/CheckboxGroup";
 import { Input } from "@/components/base/forms/Input";
-import type { User } from "@/types/admin"
+import type { Store, User, UserRole } from "@/types/admin"
 import { useEffect, useState } from "react"
 
 export const UserManagement = () => {
@@ -25,6 +30,9 @@ export const UserManagement = () => {
     const [isDialogOpen, setIsDialogOpen] = useState(false)
     const [editingUser, setEditingUser] = useState<User | null>(null)
     const [deleteTarget, setDeleteTarget] = useState<User | null>(null)
+    const [stores, setStores] = useState<Store[]>([])
+    // ログイン中の自分のロール。付与できるロールの判定に使う
+    const [myRole, setMyRole] = useState<UserRole | null>(null)
 
     const [formData, setFormData] = useState<{
         personal_id: string
@@ -32,7 +40,8 @@ export const UserManagement = () => {
         user_name: string
         name_kana: string
         email: string
-        role: User["role"]
+        role: UserRole
+        store_ids: number[]
         is_active: boolean
     }>({
         personal_id: "",
@@ -41,11 +50,17 @@ export const UserManagement = () => {
         name_kana: "",
         email: "",
         role: "staff",
+        store_ids: [],
         is_active: true,
     })
 
+    // 担当店舗が必要なのは staff / readonly のみ（admin以上は全店舗が対象）
+    const needsStores = SCOPED_ROLES.includes(formData.role)
+
     useEffect(() => {
         fetchUsers()
+        fetchStores()
+        getCurrentUser().then((user) => setMyRole(user?.role ?? null))
     }, [])
 
     const fetchUsers = async () => {
@@ -62,6 +77,22 @@ export const UserManagement = () => {
         }
     }
 
+    const fetchStores = async () => {
+        const result = await getStoresAdmin()
+        if (result.success && result.data) {
+            setStores(result.data)
+        }
+    }
+
+    const toggleStoreId = (storeId: number) => {
+        setFormData((prev) => ({
+            ...prev,
+            store_ids: prev.store_ids.includes(storeId)
+                ? prev.store_ids.filter((id) => id !== storeId)
+                : [...prev.store_ids, storeId],
+        }))
+    }
+
     const handleCreate = () => {
         setEditingUser(null)
         setFormData({
@@ -71,6 +102,7 @@ export const UserManagement = () => {
             name_kana: "",
             email: "",
             role: "staff",
+            store_ids: [],
             is_active: true,
         })
         setIsDialogOpen(true)
@@ -85,6 +117,7 @@ export const UserManagement = () => {
             name_kana: user.name_kana || "",
             email: user.email || "",
             role: user.role,
+            store_ids: user.store_ids ?? [],
             is_active: user.is_active,
         })
         setIsDialogOpen(true)
@@ -103,6 +136,8 @@ export const UserManagement = () => {
                 name_kana: formData.name_kana || undefined,
                 email: formData.email || undefined,
                 role: formData.role,
+                // admin以上は全店舗が対象のため、担当店舗は持たせない
+                store_ids: needsStores ? formData.store_ids : [],
                 is_active: formData.is_active,
                 password: formData.password,
             }
@@ -121,6 +156,7 @@ export const UserManagement = () => {
                 name_kana: formData.name_kana || undefined,
                 email: formData.email || undefined,
                 role: formData.role,
+                store_ids: needsStores ? formData.store_ids : [],
                 is_active: formData.is_active,
                 ...(formData.password ? { password: formData.password } : {}),
             })
@@ -132,6 +168,7 @@ export const UserManagement = () => {
                 name_kana: formData.name_kana || undefined,
                 email: formData.email || undefined,
                 role: formData.role,
+                store_ids: needsStores ? formData.store_ids : [],
                 is_active: formData.is_active,
             })
         }
@@ -162,13 +199,24 @@ export const UserManagement = () => {
         }
     }
 
-    const getRoleLabel = (role: string) => {
-        const labels: { [key: string]: string } = {
-            admin: "管理者",
-            staff: "スタッフ",
-            readonly: "閲覧のみ",
-        }
-        return labels[role] || role
+    /**
+     * 選択できるロールの一覧
+     *
+     * admin以上を付与できるのは super_admin だけ（バックエンドも同じ制限）。
+     * 選べてしまうと保存時に403になるため、ここで選択肢から外す。
+     */
+    const roleOptions = (
+        myRole === "super_admin"
+            ? (["super_admin", "admin", "staff", "readonly"] as const)
+            : (["staff", "readonly"] as const)
+    ).map((role) => ({ value: role, label: ROLE_LABELS[role] }))
+
+    /** 担当店舗を「渋谷店、新宿店」のように表示する */
+    const getStoreNames = (storeIds: number[] | undefined) => {
+        if (!storeIds || storeIds.length === 0) return "全店舗"
+        return storeIds
+            .map((id) => stores.find((s) => s.id === id)?.name ?? String(id))
+            .join("、")
     }
 
     return (
@@ -202,6 +250,12 @@ export const UserManagement = () => {
                             header: "ロール",
                             accessor: "role",
                             format: (value) => getRoleLabel(String(value)),
+                        },
+                        {
+                            id: "store_ids",
+                            header: "担当店舗",
+                            accessor: "store_ids",
+                            format: (value) => getStoreNames(value as number[] | undefined),
                         },
                         { id: "is_active", header: "状態", accessor: "is_active", type: "boolean" },
                     ]}
@@ -245,16 +299,43 @@ export const UserManagement = () => {
                                 onChange={(value) =>
                                     setFormData({
                                         ...formData,
-                                        role: value as User["role"],
+                                        role: value as UserRole,
                                     })
                                 }
-                                options={[
-                                { value: "admin", label: "管理者" },
-                                { value: "staff", label: "スタッフ" },
-                                { value: "readonly", label: "閲覧のみ" },
-                                ]}
+                                options={roleOptions}
                             />
                         </div>
+
+                        {/*
+                          担当店舗は staff / readonly のときだけ設定する。
+                          admin以上は全店舗が対象のため、選ばせると誤解を生む。
+                        */}
+                        {needsStores ? (
+                            <div>
+                                <CheckboxGroup
+                                    label="担当店舗 *"
+                                    className="border rounded-md p-4 max-h-40 overflow-y-auto dark:border-gray-700"
+                                >
+                                    {stores.map((store) => (
+                                        <Checkbox
+                                            key={store.id}
+                                            id={"user-store-" + store.id}
+                                            label={store.name}
+                                            checked={formData.store_ids.includes(store.id)}
+                                            onCheckedChange={() => toggleStoreId(store.id)}
+                                        />
+                                    ))}
+                                </CheckboxGroup>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                                    選択した店舗の予約・スケジュールのみ参照・更新できます。
+                                    最低1店舗を選択してください。
+                                </p>
+                            </div>
+                        ) : (
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                                管理者以上は全店舗が対象のため、担当店舗の設定は不要です。
+                            </p>
+                        )}
 
                         <Input
                             label={`パスワード ${editingUser ? "(変更する場合のみ入力)" : "*"}`}

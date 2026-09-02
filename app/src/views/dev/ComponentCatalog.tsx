@@ -12,6 +12,7 @@ import { Badge } from "@/components/base/display/Badge"
 import { Card } from "@/components/base/display/Card"
 import { Table } from "@/components/base/display/Table"
 import { Tabs } from "@/components/base/display/Tabs"
+import { Timetable } from "@/components/base/display/Timetable"
 
 import { Alert } from "@/components/base/feedback/Alert"
 import { Spinner } from "@/components/base/feedback/Spinner"
@@ -211,6 +212,27 @@ export const ComponentCatalog = () => {
                                 { id: "store", header: "店舗", accessor: "store" },
                                 { id: "status", header: "ステータス", accessor: "status", type: "badge" },
                             ]}
+                        />
+                    </div>
+                    <div>
+                        <p className="text-xs font-mono text-gray-500 dark:text-gray-400 mb-2">
+                            Timetable（ドラッグで移動、空き時間のドラッグで新規作成）
+                        </p>
+                        <Timetable
+                            startHour={10}
+                            endHour={14}
+                            columns={[
+                                { id: 1, label: "渋谷店", description: "2件" },
+                                { id: 2, label: "新宿店", description: "1件" },
+                            ]}
+                            items={[
+                                { id: 1, columnId: 1, start: "10:00", end: "11:30", title: "空き2／3", tone: "success" },
+                                { id: 2, columnId: 1, start: "12:30", end: "13:00", title: "満席", tone: "danger", locked: true, lockedReason: "予約が入っている枠は移動できません" },
+                                { id: 3, columnId: 2, start: "11:00", end: "12:00", title: "受付停止", tone: "neutral" },
+                            ]}
+                            onMove={() => {}}
+                            onCreate={() => {}}
+                            onSelect={() => {}}
                         />
                     </div>
                     <div>
