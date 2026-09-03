@@ -1,6 +1,6 @@
 "use client"
 
-import { Button } from "@/components/base/buttons/Button";
+import { Button } from "@/components/base/buttons/Button"
 import { ArrowLeft, Home, Search } from "lucide-react"
 import Link from "next/link"
 
@@ -38,7 +38,7 @@ export default function NotFound() {
                     {/* ホームに戻る */}
                     <Link href="/" className="block">
                         <Button
-                            className="w-full"
+                            fullWidth
                             size="lg"
                             label="ホームに戻る"
                             leftIcon={<Home size={20} />}
@@ -47,9 +47,9 @@ export default function NotFound() {
 
                     {/* 前のページに戻る */}
                     <Button
-                        variant="outline"
+                        variant="outlined"
                         size="lg"
-                        className="w-full"
+                        fullWidth
                         onClick={() => window.history.back()}
                         label="前のページに戻る"
                         leftIcon={<ArrowLeft size={20} />}

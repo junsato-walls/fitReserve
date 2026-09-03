@@ -2,20 +2,19 @@
 
 import { LogOut, Settings } from "lucide-react"
 import { logout } from "@/api/Auth"
-import Link from "next/link"
-import { usePathname } from "next/navigation"
 import { Avatar } from "@/components/base/display/Avatar"
 import { Modal } from "@/components/base/overlays/Modal"
-import { cn } from "@/lib/utils"
 import { hasMinRole } from "@/lib/roles"
-import { ADMIN_LINKS, STAFF_LINKS, type NavLink } from "./navLinks"
+import type { UserRole } from "@/types/admin"
+import { ADMIN_LINKS, STAFF_LINKS } from "./navLinks"
+import { NavLinkGroup } from "./NavLinkGroup"
 import { ThemeToggle } from "./ThemeToggle"
 
 interface MobileNavMenuProps {
     open: boolean
     onClose: () => void
     /** "admin" のときだけ管理者機能を出す（Sidebar と同じ条件） */
-    role?: string
+    role?: UserRole
     userName?: string
     personalId?: string
     avatarSrc?: string
@@ -32,55 +31,21 @@ interface MobileNavMenuProps {
 export const MobileNavMenu = ({
     open,
     onClose,
-    role = "staff",
+    role = "readonly",
     userName = "ゲスト",
     personalId,
     avatarSrc,
 }: MobileNavMenuProps) => {
-    const pathname = usePathname()
-
     const accountItemClasses =
         "flex items-center gap-3 w-full px-4 py-3 text-base text-left text-gray-700 dark:text-gray-200 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 focus:outline-none focus:bg-gray-200 dark:focus:bg-gray-700"
-
-    const renderGroup = (title: string, links: NavLink[]) => (
-        <div>
-            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">
-                {title}
-            </p>
-            <div className="space-y-1">
-                {links.map((link) => {
-                    const Icon = link.icon
-                    const isActive = pathname === link.href
-                    return (
-                        <Link
-                            key={link.href}
-                            href={link.href}
-                            // 遷移先に移ったらメニューは用済みなので閉じる
-                            onClick={onClose}
-                            className={cn(
-                                "flex items-center gap-3 px-4 py-3 rounded-md text-base font-medium transition-colors",
-                                isActive
-                                    ? "bg-primary text-primary-foreground"
-                                    : "text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700"
-                            )}
-                        >
-                            <Icon className="w-5 h-5" aria-hidden="true" />
-                            {link.label}
-                        </Link>
-                    )
-                })}
-            </div>
-        </div>
-    )
 
     return (
         <Modal
             open={open}
-            onClose={onClose}
+            onOpenChange={(next) => !next && onClose()}
             fullScreen
             title="メニュー"
             id="mobile-nav"
-            bodyClassName="space-y-6"
         >
             {/* ユーザー情報 */}
             <div className="flex items-center gap-3">
@@ -97,9 +62,22 @@ export const MobileNavMenu = ({
                 </div>
             </div>
 
-            {renderGroup("スタッフ機能", STAFF_LINKS)}
+            <NavLinkGroup
+                title="スタッフ機能"
+                links={STAFF_LINKS}
+                density="comfortable"
+                // 遷移先に移ったらメニューは用済みなので閉じる
+                onNavigate={onClose}
+            />
             {/* super_admin も管理者機能を使うため、一致比較ではなく階層で判定する */}
-            {hasMinRole(role, "admin") && renderGroup("管理者機能", ADMIN_LINKS)}
+            {hasMinRole(role, "admin") && (
+                <NavLinkGroup
+                    title="管理者機能"
+                    links={ADMIN_LINKS}
+                    density="comfortable"
+                    onNavigate={onClose}
+                />
+            )}
 
             {/* アカウント操作（PCでは UserMenu 側にある） */}
             <div className="border-t border-gray-200 dark:border-gray-700 pt-4 space-y-4">

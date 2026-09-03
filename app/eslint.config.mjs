@@ -10,7 +10,8 @@ const compat = new FlatCompat({
 });
 
 const eslintConfig = [
-  ...compat.extends("next/core-web-vitals", "next/typescript"),
+  // prettier は書式のみを担当する。ESLint 側の書式ルールを無効化して衝突を防ぐ
+  ...compat.extends("next/core-web-vitals", "next/typescript", "prettier"),
 ];
 
 export default eslintConfig;

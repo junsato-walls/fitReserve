@@ -8,7 +8,6 @@ function toErrorMessage(error: unknown, fallback: string): string {
     return error instanceof Error && error.message ? error.message : fallback
 }
 
-
 /**
  * 店舗一覧を取得（管理者向け）
  */
@@ -34,9 +33,7 @@ export async function getStoresAdmin(params?: {
 /**
  * 店舗詳細を取得
  */
-export async function getStoreDetail(
-    storeId: number
-): Promise<{
+export async function getStoreDetail(storeId: number): Promise<{
     success: boolean
     data: Store | null
     error?: string
@@ -54,9 +51,7 @@ export async function getStoreDetail(
 /**
  * 店舗を作成
  */
-export async function createStore(
-    data: StoreCreate
-): Promise<{
+export async function createStore(data: StoreCreate): Promise<{
     success: boolean
     data: Store | null
     error?: string
@@ -76,7 +71,7 @@ export async function createStore(
  */
 export async function updateStore(
     storeId: number,
-    data: StoreUpdate
+    data: StoreUpdate,
 ): Promise<{
     success: boolean
     data: Store | null
@@ -95,9 +90,7 @@ export async function updateStore(
 /**
  * 店舗を削除（論理削除）
  */
-export async function deleteStore(
-    storeId: number
-): Promise<{
+export async function deleteStore(storeId: number): Promise<{
     success: boolean
     error?: string
 }> {

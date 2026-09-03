@@ -6,7 +6,9 @@
     "dev": "bun --bun next dev",
     "build": "bun --bun next build",
     "start": "bun --bun next start",
-    "lint": "bun --bun next lint"
+    "lint": "bun --bun next lint",
+    "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\""
   },
   "_comment_trustedDependencies": "Bun は既定で postinstall をブロックする。Tailwind v4 のネイティブバインディングは install スクリプトが必要なため明示的に許可する。unrs-resolver は optionalDependencies でバイナリが解決されるため許可不要（Windows ARM では postinstall が失敗する）。",
   "trustedDependencies": [
@@ -32,6 +34,8 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "15.3.5",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.9.6",
     "tailwindcss": "^4",
     "tw-animate-css": "^1.3.5",
     "typescript": "^5"

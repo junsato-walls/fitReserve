@@ -12,12 +12,15 @@
 
 ```tsx
 // app/staff/page.tsx
-import { StaffLayout } from "@/components/common/layout/StaffLayout"
+import { getCurrentUser } from "@/api/Auth"
+import { StaffLayout } from "@/components/layouts/StaffLayout"
 import { StaffDashboard } from "@/views/staff/StaffDashboard"
 
 export default async function StaffPage() {
+    const user = await getCurrentUser()
+
     return (
-        <StaffLayout>
+        <StaffLayout user={user}>
             <StaffDashboard />
         </StaffLayout>
     )
@@ -30,6 +33,8 @@ export default async function StaffPage() {
 
 ```
 src/views/
+├── auth/            # 認証画面
+│   └── LoginForm.tsx             # ログインフォーム
 ├── admin/           # 管理者向け画面
 │   ├── AdminDashboard.tsx        # 管理ダッシュボード
 │   ├── ProjectManagement.tsx     # プロジェクト管理
@@ -44,6 +49,8 @@ src/views/
 │   ├── StaffReservationDetail.tsx # 予約詳細
 │   ├── StaffReservationList.tsx  # 予約一覧
 │   └── StaffScheduleList.tsx     # スケジュール管理
+├── dev/             # 開発用（本番では404）
+│   └── ComponentCatalog.tsx      # base/ の見本カタログ
 └── _README.md       # このファイル
 ```
 
@@ -60,8 +67,8 @@ export const StaffDashboard = () => { }
 ### UIは自前で組まない
 
 見た目は `@/components/base/*` の部品をそのまま使う。
-views 側で独自にスタイルを組み立てると統一感が崩れるため、
-props が足りない場合は `base/` 側を拡張する。
+**`base/` は `className` を受け取らない**ので、調整が必要なら `base/` 側に props を足す。
+設計原則は [COMPONENT_ORGANIZATION.md](../../../docs/COMPONENT_ORGANIZATION.md) を参照。
 
 ```tsx
 import { Table } from "@/components/base/display/Table"
@@ -86,7 +93,7 @@ const [storesResult, schoolsResult] = await Promise.all([
 
 views 配下のコンポーネントを別の views から import しない。
 複数画面で使う部品が必要になった場合は、`base/` に汎用部品として作るか、
-レイアウト骨組みであれば `components/common/layout/` に置く。
+レイアウト骨組みであれば `components/layouts/` に置く。
 
 ## フォルダを追加する場合
 

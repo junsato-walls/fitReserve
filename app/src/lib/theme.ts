@@ -9,31 +9,29 @@
  */
 
 /** ユーザーが選べる設定値 */
-export type ThemePreference = "light" | "dark" | "system";
+export type ThemePreference = "light" | "dark" | "system"
 
 /** 実際に適用される値（`system` を解決した結果） */
-export type ResolvedTheme = "light" | "dark";
+export type ResolvedTheme = "light" | "dark"
 
 /** 設定値を保存するCookie名。認証トークンと違い、クライアントからも読み書きする */
-export const THEME_COOKIE = "theme";
+export const THEME_COOKIE = "theme"
 
 /** Cookie未設定時の既定。OSの設定に従う */
-export const DEFAULT_THEME: ThemePreference = "system";
+export const DEFAULT_THEME: ThemePreference = "system"
 
 /** 1年間保持する */
-export const THEME_MAX_AGE = 60 * 60 * 24 * 365;
+export const THEME_MAX_AGE = 60 * 60 * 24 * 365
 
 export const THEME_OPTIONS: { value: ThemePreference; label: string }[] = [
     { value: "light", label: "ライト" },
     { value: "dark", label: "ダーク" },
     { value: "system", label: "システム" },
-];
+]
 
 /** 任意の文字列を ThemePreference として解釈する（不正値は既定に倒す） */
 export function parseThemePreference(value: string | undefined): ThemePreference {
-    return value === "light" || value === "dark" || value === "system"
-        ? value
-        : DEFAULT_THEME;
+    return value === "light" || value === "dark" || value === "system" ? value : DEFAULT_THEME
 }
 
 /**
@@ -56,4 +54,4 @@ export const THEME_INIT_SCRIPT = `
     /* Cookieやローカル設定が読めない環境ではライトのまま表示する */
   }
 })();
-`.trim();
+`.trim()

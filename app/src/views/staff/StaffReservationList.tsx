@@ -1,13 +1,14 @@
 "use client"
 
-import { Select } from "@/components/base/forms/Select";
-import { Table, type BadgeTone } from "@/components/base/display/Table";
+import { Select } from "@/components/base/forms/Select"
+import { Table } from "@/components/base/display/Table"
+import type { Tone } from "@/components/base/tokens"
 import type { ReservationWithDetails, SchoolPublic, StorePublic } from "@/types/reservation"
 import { getReservationsForStaff, getSchools, getStores } from "@/api/Reservation"
-import { Alert } from "@/components/base/feedback/Alert";
-import { Button } from "@/components/base/buttons/Button";
-import { Card } from "@/components/base/display/Card";
-import { Input } from "@/components/base/forms/Input";
+import { Alert } from "@/components/base/feedback/Alert"
+import { Button } from "@/components/base/buttons/Button"
+import { Card } from "@/components/base/display/Card"
+import { Input } from "@/components/base/forms/Input"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 
@@ -106,7 +107,7 @@ export const StaffReservationList = () => {
     }
 
     // 色そのものではなく用途を返す。実際の配色は base/Table が持つ
-    const getStatusTone = (status: string): BadgeTone => {
+    const getStatusTone = (status: string): Tone => {
         switch (status) {
             case "pending":
                 return "warning"
@@ -131,7 +132,13 @@ export const StaffReservationList = () => {
                         placeholder="すべて"
                         value={storeFilter}
                         onChange={setStoreFilter}
-                        options={[{ value: ALL_FILTER, label: "すべて" }, ...stores.map((store) => ({ value: store.id.toString(), label: store.name }))]}
+                        options={[
+                            { value: ALL_FILTER, label: "すべて" },
+                            ...stores.map((store) => ({
+                                value: store.id.toString(),
+                                label: store.name,
+                            })),
+                        ]}
                     />
 
                     <Select
@@ -140,7 +147,13 @@ export const StaffReservationList = () => {
                         placeholder="すべて"
                         value={schoolFilter}
                         onChange={setSchoolFilter}
-                        options={[{ value: ALL_FILTER, label: "すべて" }, ...schools.map((school) => ({ value: school.id.toString(), label: school.name }))]}
+                        options={[
+                            { value: ALL_FILTER, label: "すべて" },
+                            ...schools.map((school) => ({
+                                value: school.id.toString(),
+                                label: school.name,
+                            })),
+                        ]}
                     />
 
                     <Select
@@ -149,7 +162,13 @@ export const StaffReservationList = () => {
                         placeholder="すべて"
                         value={statusFilter}
                         onChange={setStatusFilter}
-                        options={[{ value: ALL_FILTER, label: "すべて" }, { value: "pending", label: "予約受付" }, { value: "confirmed", label: "予約確定" }, { value: "completed", label: "採寸完了" }, { value: "cancelled", label: "キャンセル" }]}
+                        options={[
+                            { value: ALL_FILTER, label: "すべて" },
+                            { value: "pending", label: "予約受付" },
+                            { value: "confirmed", label: "予約確定" },
+                            { value: "completed", label: "採寸完了" },
+                            { value: "cancelled", label: "キャンセル" },
+                        ]}
                     />
 
                     <Input
@@ -170,14 +189,18 @@ export const StaffReservationList = () => {
                 </div>
 
                 <div className="flex gap-2 mt-4">
-                    <Button onClick={handleSearch} disabled={loading} label="検索" loadingLabel="検索中..." isLoading={loading} />
-                    <Button variant="outline" onClick={handleReset} label="リセット" />
+                    <Button
+                        onClick={handleSearch}
+                        disabled={loading}
+                        label="検索"
+                        loadingLabel="検索中..."
+                        isLoading={loading}
+                    />
+                    <Button variant="outlined" onClick={handleReset} label="リセット" />
                 </div>
             </Card>
 
-            {error && (
-                <Alert type="error" message={error} />
-            )}
+            {error && <Alert tone="danger" message={error} />}
 
             <Card title={`予約一覧（${reservations.length}件）`}>
                 <Table
@@ -186,7 +209,11 @@ export const StaffReservationList = () => {
                     emptyMessage="予約が見つかりません"
                     getRowId={(reservation) => reservation.id}
                     columns={[
-                        { id: "reservation_number", header: "予約番号", accessor: "reservation_number" },
+                        {
+                            id: "reservation_number",
+                            header: "予約番号",
+                            accessor: "reservation_number",
+                        },
                         {
                             id: "reservation_date",
                             header: "予約日時",
@@ -210,7 +237,8 @@ export const StaffReservationList = () => {
                         {
                             id: "detail",
                             label: "詳細",
-                            onClick: (reservation) => router.push(`/staff/reservations/${reservation.id}`),
+                            onClick: (reservation) =>
+                                router.push(`/staff/reservations/${reservation.id}`),
                         },
                     ]}
                 />

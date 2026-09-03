@@ -41,9 +41,7 @@ export async function getProjectsAdmin(params?: {
 /**
  * プロジェクト詳細を取得
  */
-export async function getProjectDetail(
-    projectId: number
-): Promise<{
+export async function getProjectDetail(projectId: number): Promise<{
     success: boolean
     data: Project | null
     error?: string
@@ -64,9 +62,7 @@ export async function getProjectDetail(
 /**
  * プロジェクトを作成
  */
-export async function createProject(
-    data: ProjectCreateInput
-): Promise<{
+export async function createProject(data: ProjectCreateInput): Promise<{
     success: boolean
     data: Project | null
     error?: string
@@ -98,7 +94,7 @@ export async function createProject(
  */
 export async function updateProject(
     projectId: number,
-    data: ProjectUpdateInput
+    data: ProjectUpdateInput,
 ): Promise<{
     success: boolean
     data: Project | null
@@ -128,9 +124,7 @@ export async function updateProject(
 /**
  * プロジェクトを削除（論理削除）
  */
-export async function deleteProject(
-    projectId: number
-): Promise<{
+export async function deleteProject(projectId: number): Promise<{
     success: boolean
     error?: string
 }> {

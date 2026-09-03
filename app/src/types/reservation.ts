@@ -48,8 +48,15 @@ export interface SchoolPublic {
 }
 
 /** 公開API用スケジュール。残り枠数(available_count)を含む */
+/**
+ * 予約できる枠（顧客向け）
+ *
+ * 枠はDBに行として存在せず、店舗の営業時間から導出したもの。
+ * そのため id を持たない。画面で選択状態を持つときは
+ * 日付と開始時刻の組（slotKey）を使うこと。
+ * 満席・定休日・休憩・枠止めの枠はそもそも返ってこない。
+ */
 export interface SchedulePublic {
-    id: number
     store_id: number
     schedule_date: string
     start_time: string
@@ -57,7 +64,6 @@ export interface SchedulePublic {
     capacity: number
     reserved_count: number
     available_count: number
-    is_available: boolean
 }
 
 export interface Reservation {
@@ -128,4 +134,3 @@ export interface ReservationUpdate {
     status?: "pending" | "confirmed" | "completed" | "cancelled"
     memo?: string
 }
-

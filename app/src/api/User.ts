@@ -8,7 +8,6 @@ function toErrorMessage(error: unknown, fallback: string): string {
     return error instanceof Error && error.message ? error.message : fallback
 }
 
-
 /**
  * ユーザー一覧を取得（管理者向け）
  */
@@ -34,9 +33,7 @@ export async function getUsersAdmin(params?: {
 /**
  * ユーザー詳細を取得
  */
-export async function getUserDetail(
-    userId: number
-): Promise<{
+export async function getUserDetail(userId: number): Promise<{
     success: boolean
     data: User | null
     error?: string
@@ -54,9 +51,7 @@ export async function getUserDetail(
 /**
  * ユーザーを作成
  */
-export async function createUser(
-    data: UserCreate
-): Promise<{
+export async function createUser(data: UserCreate): Promise<{
     success: boolean
     data: User | null
     error?: string
@@ -76,7 +71,7 @@ export async function createUser(
  */
 export async function updateUser(
     userId: number,
-    data: UserUpdate
+    data: UserUpdate,
 ): Promise<{
     success: boolean
     data: User | null
@@ -95,9 +90,7 @@ export async function updateUser(
 /**
  * ユーザーを削除（論理削除）
  */
-export async function deleteUser(
-    userId: number
-): Promise<{
+export async function deleteUser(userId: number): Promise<{
     success: boolean
     error?: string
 }> {

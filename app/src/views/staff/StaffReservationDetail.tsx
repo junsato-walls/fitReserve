@@ -1,16 +1,13 @@
 "use client"
 
-import { Modal } from "@/components/base/overlays/Modal";
+import { Modal } from "@/components/base/overlays/Modal"
 import type { ReservationWithDetails } from "@/types/reservation"
-import {
-    cancelReservation,
-    getReservationDetail,
-    updateReservation,
-} from "@/api/Reservation"
-import { Alert } from "@/components/base/feedback/Alert";
-import { Button } from "@/components/base/buttons/Button";
-import { Badge, type BadgeTone } from "@/components/base/display/Badge";
-import { Card } from "@/components/base/display/Card";
+import { cancelReservation, getReservationDetail, updateReservation } from "@/api/Reservation"
+import { Alert } from "@/components/base/feedback/Alert"
+import { Button } from "@/components/base/buttons/Button"
+import { Badge } from "@/components/base/display/Badge"
+import type { Tone } from "@/components/base/tokens"
+import { Card } from "@/components/base/display/Card"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 
@@ -18,9 +15,7 @@ type StaffReservationDetailProps = {
     reservationId: number
 }
 
-export const StaffReservationDetail = ({
-    reservationId,
-}: StaffReservationDetailProps) => {
+export const StaffReservationDetail = ({ reservationId }: StaffReservationDetailProps) => {
     const router = useRouter()
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
@@ -96,7 +91,7 @@ export const StaffReservationDetail = ({
     }
 
     // 色そのものではなく用途を返す。実際の配色は base/Badge が持つ
-    const getStatusTone = (status: string): BadgeTone => {
+    const getStatusTone = (status: string): Tone => {
         switch (status) {
             case "pending":
                 return "warning"
@@ -122,8 +117,10 @@ export const StaffReservationDetail = ({
     if (error && !reservation) {
         return (
             <div className="container mx-auto py-8">
-                <Alert type="error" message={error} />
-                <Button className="mt-4" onClick={() => router.back()} label="戻る" />
+                <Alert tone="danger" message={error} />
+                <div className="mt-4">
+                    <Button onClick={() => router.back()} label="戻る" />
+                </div>
             </div>
         )
     }
@@ -135,16 +132,12 @@ export const StaffReservationDetail = ({
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
-                <Button variant="outline" onClick={() => router.back()} label="戻る" />
+                <Button variant="outlined" onClick={() => router.back()} label="戻る" />
             </div>
 
-            {success && (
-                <Alert type="success" message={success} />
-            )}
+            {success && <Alert tone="success" message={success} />}
 
-            {error && (
-                <Alert type="error" message={error} />
-            )}
+            {error && <Alert tone="danger" message={error} />}
 
             <Card
                 title="予約詳細"
@@ -197,7 +190,9 @@ export const StaffReservationDetail = ({
                             </div>
                             {reservation.customer_name_kana && (
                                 <div>
-                                    <p className="text-gray-500 dark:text-gray-400">お名前（カナ）</p>
+                                    <p className="text-gray-500 dark:text-gray-400">
+                                        お名前（カナ）
+                                    </p>
                                     <p className="font-medium">{reservation.customer_name_kana}</p>
                                 </div>
                             )}
@@ -207,8 +202,8 @@ export const StaffReservationDetail = ({
                                     {reservation.gender === "male"
                                         ? "男性"
                                         : reservation.gender === "female"
-                                            ? "女性"
-                                            : "その他"}
+                                          ? "女性"
+                                          : "その他"}
                                 </p>
                             </div>
                             {reservation.grade && (
@@ -223,7 +218,9 @@ export const StaffReservationDetail = ({
                             </div>
                             {reservation.email && (
                                 <div>
-                                    <p className="text-gray-500 dark:text-gray-400">メールアドレス</p>
+                                    <p className="text-gray-500 dark:text-gray-400">
+                                        メールアドレス
+                                    </p>
                                     <p className="font-medium">{reservation.email}</p>
                                 </div>
                             )}
@@ -255,7 +252,9 @@ export const StaffReservationDetail = ({
                                 )}
                                 {reservation.foot_size && (
                                     <div>
-                                        <p className="text-gray-500 dark:text-gray-400">足のサイズ</p>
+                                        <p className="text-gray-500 dark:text-gray-400">
+                                            足のサイズ
+                                        </p>
                                         <p className="font-medium">{reservation.foot_size} cm</p>
                                     </div>
                                 )}
@@ -278,32 +277,34 @@ export const StaffReservationDetail = ({
                             {reservation.status === "pending" && (
                                 <Button
                                     onClick={() => handleStatusChange("confirmed")}
-                                    disabled={loading} label="予約を確定する" />
+                                    disabled={loading}
+                                    label="予約を確定する"
+                                />
                             )}
                             {reservation.status === "confirmed" && (
                                 <Button
                                     onClick={() => handleStatusChange("completed")}
                                     disabled={loading}
-                                    variant="primary" label="採寸完了にする" />
+                                    tone="info"
+                                    label="採寸完了にする"
+                                />
                             )}
                             {reservation.status !== "cancelled" &&
                                 reservation.status !== "completed" && (
                                     <Button
-                                        variant="danger"
+                                        tone="danger"
                                         disabled={loading}
-                                        onClick={() => setIsCancelDialogOpen(true)} label="キャンセル" />
+                                        onClick={() => setIsCancelDialogOpen(true)}
+                                        label="キャンセル"
+                                    />
                                 )}
                         </div>
                     </div>
 
                     {/* メタ情報 */}
                     <div className="text-xs text-gray-500 dark:text-gray-400 border-t pt-4 space-y-1">
-                        <p>
-                            予約日時: {new Date(reservation.created_at).toLocaleString("ja-JP")}
-                        </p>
-                        <p>
-                            更新日時: {new Date(reservation.updated_at).toLocaleString("ja-JP")}
-                        </p>
+                        <p>予約日時: {new Date(reservation.created_at).toLocaleString("ja-JP")}</p>
+                        <p>更新日時: {new Date(reservation.updated_at).toLocaleString("ja-JP")}</p>
                     </div>
                 </div>
             </Card>
@@ -318,13 +319,15 @@ export const StaffReservationDetail = ({
                     {
                         id: "back",
                         label: "戻る",
-                        variant: "secondary",
+                        tone: "neutral" as const,
+                        variant: "outlined" as const,
                         onClick: () => setIsCancelDialogOpen(false),
                     },
                     {
                         id: "cancel",
                         label: "キャンセルする",
-                        variant: "danger",
+                        tone: "danger" as const,
+                        variant: "filled" as const,
                         onClick: () => {
                             setIsCancelDialogOpen(false)
                             handleCancel()

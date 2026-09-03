@@ -18,10 +18,14 @@ export interface Store {
     address: string | null
     phone: string | null
     email: string | null
+    /** 同時対応可能人数（日ごとの受付数の既定値） */
     capacity: number
-    business_hours_start: string | null
-    business_hours_end: string | null
-    regular_holiday: string | null
+    /** 営業開始時間（予約枠の生成範囲） */
+    business_hours_start: string
+    /** 営業終了時間（予約枠の生成範囲） */
+    business_hours_end: string
+    /** 定休日の曜日（0=日曜 〜 6=土曜） */
+    regular_holidays: number[]
     description: string | null
     image_url: string | null
     is_enabled: boolean
@@ -41,9 +45,10 @@ export interface StoreCreate {
     phone?: string
     email?: string
     capacity?: number
-    business_hours_start?: string
-    business_hours_end?: string
-    regular_holiday?: string
+    business_hours_start: string
+    business_hours_end: string
+    /** 定休日の曜日（0=日曜 〜 6=土曜） */
+    regular_holidays?: number[]
     description?: string
     image_url?: string
     is_enabled?: boolean
@@ -62,7 +67,8 @@ export interface StoreUpdate {
     capacity?: number
     business_hours_start?: string
     business_hours_end?: string
-    regular_holiday?: string
+    /** 定休日の曜日（0=日曜 〜 6=土曜）。指定時は全置換 */
+    regular_holidays?: number[]
     description?: string
     image_url?: string
     is_enabled?: boolean

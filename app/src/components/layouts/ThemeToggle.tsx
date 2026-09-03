@@ -28,8 +28,7 @@ function readPreference(): ThemePreference {
 function applyTheme(preference: ThemePreference) {
     const isDark =
         preference === "dark" ||
-        (preference === "system" &&
-            window.matchMedia("(prefers-color-scheme: dark)").matches)
+        (preference === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches)
     document.documentElement.classList.toggle("dark", isDark)
 }
 
@@ -91,7 +90,7 @@ export const ThemeToggle = () => {
                                 "focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-800",
                                 isSelected
                                     ? "bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm"
-                                    : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+                                    : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white",
                             )}
                         >
                             <Icon className="w-3.5 h-3.5" aria-hidden="true" />

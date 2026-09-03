@@ -1,5 +1,4 @@
 import { getCurrentUser } from "@/api/Auth"
-import { Header } from "@/components/layouts/Header"
 import { StaffLayout } from "@/components/layouts/StaffLayout"
 import { StaffReservationList } from "@/views/staff/StaffReservationList"
 
@@ -8,15 +7,8 @@ export default async function StaffReservationsPage() {
     const user = await getCurrentUser()
 
     return (
-        <>
-            <Header
-                userName={user?.user_name}
-                personalId={user?.personal_id}
-                role={user?.role}
-            />
-            <StaffLayout role={user?.role}>
-                <StaffReservationList />
-            </StaffLayout>
-        </>
+        <StaffLayout user={user}>
+            <StaffReservationList />
+        </StaffLayout>
     )
 }

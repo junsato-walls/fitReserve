@@ -8,7 +8,6 @@ function toErrorMessage(error: unknown, fallback: string): string {
     return error instanceof Error && error.message ? error.message : fallback
 }
 
-
 /**
  * 学校一覧を取得（管理者向け）
  */
@@ -34,9 +33,7 @@ export async function getSchoolsAdmin(params?: {
 /**
  * 学校詳細を取得
  */
-export async function getSchoolDetail(
-    schoolId: number
-): Promise<{
+export async function getSchoolDetail(schoolId: number): Promise<{
     success: boolean
     data: School | null
     error?: string
@@ -54,9 +51,7 @@ export async function getSchoolDetail(
 /**
  * 学校を作成
  */
-export async function createSchool(
-    data: SchoolCreate
-): Promise<{
+export async function createSchool(data: SchoolCreate): Promise<{
     success: boolean
     data: School | null
     error?: string
@@ -76,7 +71,7 @@ export async function createSchool(
  */
 export async function updateSchool(
     schoolId: number,
-    data: SchoolUpdate
+    data: SchoolUpdate,
 ): Promise<{
     success: boolean
     data: School | null
@@ -95,9 +90,7 @@ export async function updateSchool(
 /**
  * 学校を削除（論理削除）
  */
-export async function deleteSchool(
-    schoolId: number
-): Promise<{
+export async function deleteSchool(schoolId: number): Promise<{
     success: boolean
     error?: string
 }> {

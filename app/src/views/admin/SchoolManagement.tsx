@@ -8,13 +8,13 @@ import {
     getSchoolsAdmin,
     updateSchool,
 } from "@/api/School"
-import { Table } from "@/components/base/display/Table";
-import { Select } from "@/components/base/forms/Select";
-import { Modal } from "@/components/base/overlays/Modal";
-import { Alert } from "@/components/base/feedback/Alert";
-import { Button } from "@/components/base/buttons/Button";
-import { Card } from "@/components/base/display/Card";
-import { Input } from "@/components/base/forms/Input";
+import { Table } from "@/components/base/display/Table"
+import { Select } from "@/components/base/forms/Select"
+import { Modal } from "@/components/base/overlays/Modal"
+import { Alert } from "@/components/base/feedback/Alert"
+import { Button } from "@/components/base/buttons/Button"
+import { Card } from "@/components/base/display/Card"
+import { Input } from "@/components/base/forms/Input"
 import type { School, SchoolDivision } from "@/types/admin"
 import { useEffect, useState } from "react"
 
@@ -155,8 +155,7 @@ export const SchoolManagement = () => {
     }
 
     /** 区分IDを名称に変換する（マスタ未取得の間はIDのまま出す） */
-    const getDivisionLabel = (id: number) =>
-        divisions.find((d) => d.id === id)?.name ?? String(id)
+    const getDivisionLabel = (id: number) => divisions.find((d) => d.id === id)?.name ?? String(id)
 
     return (
         <div className="space-y-6">
@@ -165,13 +164,9 @@ export const SchoolManagement = () => {
                 <Button onClick={handleCreate} label="新規作成" />
             </div>
 
-            {success && (
-                <Alert type="success" message={success} />
-            )}
+            {success && <Alert tone="success" message={success} />}
 
-            {error && (
-                <Alert type="error" message={error} />
-            )}
+            {error && <Alert tone="danger" message={error} />}
 
             <Card title={`学校一覧（${schools.length}件）`}>
                 <Table
@@ -190,11 +185,21 @@ export const SchoolManagement = () => {
                         },
                         { id: "address", header: "住所", accessor: "address" },
                         { id: "phone", header: "電話番号", accessor: "phone" },
-                        { id: "is_enabled", header: "状態", accessor: "is_enabled", type: "boolean" },
+                        {
+                            id: "is_enabled",
+                            header: "状態",
+                            accessor: "is_enabled",
+                            type: "boolean",
+                        },
                     ]}
                     actions={[
                         { id: "edit", label: "編集", onClick: (school) => handleEdit(school) },
-                        { id: "delete", label: "削除", destructive: true, onClick: (school) => setDeleteTarget(school) },
+                        {
+                            id: "delete",
+                            label: "削除",
+                            destructive: true,
+                            onClick: (school) => setDeleteTarget(school),
+                        },
                     ]}
                 />
             </Card>
@@ -205,128 +210,120 @@ export const SchoolManagement = () => {
                 onOpenChange={setIsDialogOpen}
                 title={editingSchool ? "学校編集" : "学校新規作成"}
                 size="md"
-                contentClassName="max-h-[90vh] overflow-y-auto"
+                scrollableBody
                 actions={[
                     {
                         id: "cancel",
                         label: "キャンセル",
-                        variant: "secondary",
+                        tone: "neutral" as const,
+                        variant: "outlined" as const,
                         onClick: () => setIsDialogOpen(false),
                     },
                     {
                         id: "submit",
                         label: editingSchool ? "更新" : "作成",
-                        variant: "primary",
+                        tone: "info" as const,
+                        variant: "filled" as const,
                         onClick: handleSubmit,
                     },
                 ]}
             >
-                    <div className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
-                            <Input
-                                label="学校コード"
-                                required
-                                fullWidth
-                                value={formData.school_code}
-                                onChange={(e) =>
-                                    setFormData({ ...formData, school_code: e.target.value })
-                                }
-                                placeholder="SCH001"
-                            />
-                            <div>
-                                {/* 選択肢は school_divisions マスタから取得する。
-                                    固定のEnumではないため、区分を増やしても画面修正は不要 */}
-                                <Select
-                                    label="学校区分 *"
-                                    fullWidth
-                                    value={formData.school_divisions_id}
-                                    onChange={(value) =>
-                                        setFormData({ ...formData, school_divisions_id: value })
-                                    }
-                                    options={divisions.map((d) => ({
-                                        value: d.id,
-                                        label: d.name,
-                                    }))}
-                                />
-                            </div>
-                        </div>
-
+                <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
                         <Input
-                            label="学校名"
+                            label="学校コード"
                             required
                             fullWidth
-                            value={formData.name}
-                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                            placeholder="○○中学校"
-                        />
-
-                        <Input
-                            label="学校名カナ"
-                            fullWidth
-                            value={formData.name_kana}
+                            value={formData.school_code}
                             onChange={(e) =>
-                                setFormData({ ...formData, name_kana: e.target.value })
+                                setFormData({ ...formData, school_code: e.target.value })
                             }
-                            placeholder="マルマルチュウガッコウ"
+                            placeholder="SCH001"
                         />
-
-                        <Input
-                            label="郵便番号"
-                            fullWidth
-                            value={formData.postal_code}
-                            onChange={(e) =>
-                                setFormData({ ...formData, postal_code: e.target.value })
-                            }
-                            placeholder="123-4567"
-                        />
-
-                        <Input
-                            label="住所"
-                            fullWidth
-                            value={formData.address}
-                            onChange={(e) =>
-                                setFormData({ ...formData, address: e.target.value })
-                            }
-                            placeholder="東京都○○区○○..."
-                        />
-
-                        <div className="grid grid-cols-2 gap-4">
-                            <Input
-                                label="電話番号"
-                                fullWidth
-                                value={formData.phone}
-                                onChange={(e) =>
-                                    setFormData({ ...formData, phone: e.target.value })
-                                }
-                                placeholder="03-1234-5678"
-                            />
-                            <Input
-                                label="メールアドレス"
-                                fullWidth
-                                type="email"
-                                value={formData.email}
-                                onChange={(e) =>
-                                    setFormData({ ...formData, email: e.target.value })
-                                }
-                                placeholder="info@school.example.com"
-                            />
-                        </div>
-
                         <div>
+                            {/* 選択肢は school_divisions マスタから取得する。
+                                    固定のEnumではないため、区分を増やしても画面修正は不要 */}
                             <Select
-                                label="有効フラグ"
+                                label="学校区分 *"
                                 fullWidth
-                                value={formData.is_enabled.toString()}
+                                value={formData.school_divisions_id}
                                 onChange={(value) =>
-                                    setFormData({ ...formData, is_enabled: value === "true" })
+                                    setFormData({ ...formData, school_divisions_id: value })
                                 }
-                                options={[
-                                    { value: "true", label: "有効" },
-                                    { value: "false", label: "無効" },
-                                ]}
+                                options={divisions.map((d) => ({
+                                    value: d.id,
+                                    label: d.name,
+                                }))}
                             />
                         </div>
                     </div>
+
+                    <Input
+                        label="学校名"
+                        required
+                        fullWidth
+                        value={formData.name}
+                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        placeholder="○○中学校"
+                    />
+
+                    <Input
+                        label="学校名カナ"
+                        fullWidth
+                        value={formData.name_kana}
+                        onChange={(e) => setFormData({ ...formData, name_kana: e.target.value })}
+                        placeholder="マルマルチュウガッコウ"
+                    />
+
+                    <Input
+                        label="郵便番号"
+                        fullWidth
+                        value={formData.postal_code}
+                        onChange={(e) => setFormData({ ...formData, postal_code: e.target.value })}
+                        placeholder="123-4567"
+                    />
+
+                    <Input
+                        label="住所"
+                        fullWidth
+                        value={formData.address}
+                        onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                        placeholder="東京都○○区○○..."
+                    />
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <Input
+                            label="電話番号"
+                            fullWidth
+                            value={formData.phone}
+                            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                            placeholder="03-1234-5678"
+                        />
+                        <Input
+                            label="メールアドレス"
+                            fullWidth
+                            type="email"
+                            value={formData.email}
+                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                            placeholder="info@school.example.com"
+                        />
+                    </div>
+
+                    <div>
+                        <Select
+                            label="有効フラグ"
+                            fullWidth
+                            value={formData.is_enabled.toString()}
+                            onChange={(value) =>
+                                setFormData({ ...formData, is_enabled: value === "true" })
+                            }
+                            options={[
+                                { value: "true", label: "有効" },
+                                { value: "false", label: "無効" },
+                            ]}
+                        />
+                    </div>
+                </div>
             </Modal>
 
             {/* 削除確認ダイアログ */}
@@ -339,19 +336,22 @@ export const SchoolManagement = () => {
                     {
                         id: "cancel",
                         label: "キャンセル",
-                        variant: "secondary",
+                        tone: "neutral" as const,
+                        variant: "outlined" as const,
                         onClick: () => setDeleteTarget(null),
                     },
                     {
                         id: "delete",
                         label: "削除する",
-                        variant: "danger",
+                        tone: "danger" as const,
+                        variant: "filled" as const,
                         onClick: handleDelete,
                     },
                 ]}
             >
                 <p className="text-sm text-gray-600 dark:text-gray-300">
-                    この操作は取り消せません。学校「{deleteTarget?.name}」を削除してもよろしいですか？
+                    この操作は取り消せません。学校「{deleteTarget?.name}
+                    」を削除してもよろしいですか？
                 </p>
             </Modal>
         </div>

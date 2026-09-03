@@ -1,11 +1,12 @@
 "use client"
 
 import { getReservationByNumber } from "@/api/Reservation"
-import { Alert } from "@/components/base/feedback/Alert";
-import { Button } from "@/components/base/buttons/Button";
-import { Badge, type BadgeTone } from "@/components/base/display/Badge";
-import { Card } from "@/components/base/display/Card";
-import { Input } from "@/components/base/forms/Input";
+import { Alert } from "@/components/base/feedback/Alert"
+import { Button } from "@/components/base/buttons/Button"
+import { Badge } from "@/components/base/display/Badge"
+import type { Tone } from "@/components/base/tokens"
+import { Card } from "@/components/base/display/Card"
+import { Input } from "@/components/base/forms/Input"
 import type { Reservation } from "@/types/reservation"
 import { useSearchParams } from "next/navigation"
 import { useState } from "react"
@@ -55,7 +56,7 @@ export const ReservationCheck = () => {
     }
 
     // 色そのものではなく用途を返す。実際の配色は base/Badge が持つ
-    const getStatusTone = (status: string): BadgeTone => {
+    const getStatusTone = (status: string): Tone => {
         switch (status) {
             case "pending":
                 return "warning"
@@ -71,7 +72,7 @@ export const ReservationCheck = () => {
     }
 
     return (
-        <Card className="max-w-2xl mx-auto" title="予約内容の確認">
+        <Card maxWidth="2xl" center title="予約内容の確認">
             <div className="space-y-6">
                 <div className="flex items-end gap-2">
                     <div className="flex-1">
@@ -86,12 +87,16 @@ export const ReservationCheck = () => {
                             }}
                         />
                     </div>
-                    <Button onClick={handleSearch} disabled={loading} label="検索" loadingLabel="検索中..." isLoading={loading} />
+                    <Button
+                        onClick={handleSearch}
+                        disabled={loading}
+                        label="検索"
+                        loadingLabel="検索中..."
+                        isLoading={loading}
+                    />
                 </div>
 
-                {error && (
-                    <Alert type="error" message={error} />
-                )}
+                {error && <Alert tone="danger" message={error} />}
 
                 {reservation && (
                     <div className="border rounded p-4 space-y-4">
@@ -122,7 +127,9 @@ export const ReservationCheck = () => {
 
                             {reservation.customer_name_kana && (
                                 <div className="space-y-1">
-                                    <p className="text-gray-500 dark:text-gray-400">お名前（カナ）</p>
+                                    <p className="text-gray-500 dark:text-gray-400">
+                                        お名前（カナ）
+                                    </p>
                                     <p className="font-medium">{reservation.customer_name_kana}</p>
                                 </div>
                             )}
@@ -133,8 +140,8 @@ export const ReservationCheck = () => {
                                     {reservation.gender === "male"
                                         ? "男性"
                                         : reservation.gender === "female"
-                                            ? "女性"
-                                            : "その他"}
+                                          ? "女性"
+                                          : "その他"}
                                 </p>
                             </div>
 
@@ -152,7 +159,9 @@ export const ReservationCheck = () => {
 
                             {reservation.email && (
                                 <div className="space-y-1">
-                                    <p className="text-gray-500 dark:text-gray-400">メールアドレス</p>
+                                    <p className="text-gray-500 dark:text-gray-400">
+                                        メールアドレス
+                                    </p>
                                     <p className="font-medium">{reservation.email}</p>
                                 </div>
                             )}
@@ -183,8 +192,12 @@ export const ReservationCheck = () => {
                                     )}
                                     {reservation.foot_size && (
                                         <div className="space-y-1">
-                                            <p className="text-gray-500 dark:text-gray-400">足のサイズ</p>
-                                            <p className="font-medium">{reservation.foot_size} cm</p>
+                                            <p className="text-gray-500 dark:text-gray-400">
+                                                足のサイズ
+                                            </p>
+                                            <p className="font-medium">
+                                                {reservation.foot_size} cm
+                                            </p>
                                         </div>
                                     )}
                                 </div>
@@ -199,7 +212,9 @@ export const ReservationCheck = () => {
                         )}
 
                         <div className="text-xs text-gray-500 dark:text-gray-400 border-t pt-4">
-                            <p>予約日時: {new Date(reservation.created_at).toLocaleString("ja-JP")}</p>
+                            <p>
+                                予約日時: {new Date(reservation.created_at).toLocaleString("ja-JP")}
+                            </p>
                         </div>
                     </div>
                 )}

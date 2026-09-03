@@ -1,9 +1,9 @@
-'use server'
+"use server"
 
-import { api } from '@/lib/httpClient'
-import type { UserRole } from '@/types/admin'
-import { cookies } from 'next/headers'
-import { redirect } from 'next/navigation'
+import { api } from "@/lib/httpClient"
+import type { UserRole } from "@/types/admin"
+import { cookies } from "next/headers"
+import { redirect } from "next/navigation"
 
 export interface LoginResponse {
     success: boolean
@@ -27,29 +27,26 @@ export interface CurrentUser {
     is_active: boolean
 }
 
-export async function login(
-    personal_id: string,
-    password: string
-): Promise<LoginResponse> {
+export async function login(personal_id: string, password: string): Promise<LoginResponse> {
     try {
         // バックエンド(api/router/auth/sessions.py)はBody(...)でJSONを要求するため
         // クエリ文字列ではなくリクエストボディで送信する
-        const response = await api.post<BackendLoginResponse>('/auth/login', {
+        const response = await api.post<BackendLoginResponse>("/auth/login", {
             personal_id,
             password,
-        });
+        })
 
-        const token = response.data.access_token;
+        const token = response.data.access_token
         if (!token) {
-            console.error("❌ [Auth Action] トークン取得に失敗");
+            console.error("❌ [Auth Action] トークン取得に失敗")
             return {
                 success: false,
-                error: "トークン取得に失敗しました"
-            };
+                error: "トークン取得に失敗しました",
+            }
         }
 
         // クッキーにトークンを設定
-        const cookieStore = await cookies();
+        const cookieStore = await cookies()
         cookieStore.set("token", token, {
             httpOnly: true,
             path: "/",
@@ -57,45 +54,44 @@ export async function login(
             sameSite: "lax",
             // ローカル開発はhttpのため、本番(https)でのみsecureを有効にする
             secure: process.env.NODE_ENV === "production",
-        });
-        return { success: true };
-
+        })
+        return { success: true }
     } catch (error: unknown) {
-        console.error("❌ [Auth Action] ログインエラー:", error);
+        console.error("❌ [Auth Action] ログインエラー:", error)
 
-        const message = error instanceof Error ? error.message : '';
+        const message = error instanceof Error ? error.message : ""
         // 認証失敗（401）と無効アカウント（403）はバックエンドの文言をそのまま見せる。
         // 原因が利用者に伝わる文言のため、ここで丸めない。
-        if (message.includes('正しくありません') || message.includes('無効化')) {
-            return { success: false, error: message };
+        if (message.includes("正しくありません") || message.includes("無効化")) {
+            return { success: false, error: message }
         }
 
         return {
             success: false,
-            error: "サーバーエラーが発生しました"
-        };
+            error: "サーバーエラーが発生しました",
+        }
     }
 }
 
 export async function logout(): Promise<void> {
     try {
-        const cookieStore = await cookies();
-        cookieStore.delete("token");
-        console.log("✅ [Auth Action] ログアウト成功");
+        const cookieStore = await cookies()
+        cookieStore.delete("token")
+        console.log("✅ [Auth Action] ログアウト成功")
     } catch (error: unknown) {
-        console.error("❌ [Auth Action] ログアウトエラー:", error);
+        console.error("❌ [Auth Action] ログアウトエラー:", error)
     }
-    redirect('/login');
+    redirect("/login")
 }
 
 export async function getAuthToken(): Promise<string | null> {
     try {
-        const cookieStore = await cookies();
-        const token = cookieStore.get("token")?.value;
-        return token || null;
+        const cookieStore = await cookies()
+        const token = cookieStore.get("token")?.value
+        return token || null
     } catch (error: unknown) {
-        console.error("❌ [Auth Action] トークン取得エラー:", error);
-        return null;
+        console.error("❌ [Auth Action] トークン取得エラー:", error)
+        return null
     }
 }
 
@@ -107,13 +103,13 @@ export async function getAuthToken(): Promise<string | null> {
  * ここでは表示・入力補完用に中身を参照するにとどめる。
  */
 function decodeJwtPayload(token: string): Record<string, unknown> | null {
-    const parts = token.split('.')
+    const parts = token.split(".")
     if (parts.length !== 3) return null
 
     try {
         // JWTはbase64url形式のため、標準base64に変換してからデコードする
-        const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/')
-        return JSON.parse(Buffer.from(base64, 'base64').toString('utf-8'))
+        const base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/")
+        return JSON.parse(Buffer.from(base64, "base64").toString("utf-8"))
     } catch (error: unknown) {
         console.error("❌ [Auth Action] JWTデコードエラー:", error)
         return null
@@ -129,18 +125,16 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     if (!token) return null
 
     const payload = decodeJwtPayload(token)
-    if (!payload || typeof payload.id !== 'number') return null
+    if (!payload || typeof payload.id !== "number") return null
 
     return {
         id: payload.id,
-        personal_id: String(payload.personal_id ?? ''),
-        user_name: String(payload.user_name ?? ''),
-        role: (payload.role as CurrentUser['role']) ?? 'readonly',
-        store_id: typeof payload.store_id === 'number' ? payload.store_id : null,
+        personal_id: String(payload.personal_id ?? ""),
+        user_name: String(payload.user_name ?? ""),
+        role: (payload.role as CurrentUser["role"]) ?? "readonly",
+        store_id: typeof payload.store_id === "number" ? payload.store_id : null,
         // null は全店舗。admin以上は担当店舗を持たない
-        store_ids: Array.isArray(payload.store_ids)
-            ? (payload.store_ids as number[])
-            : null,
+        store_ids: Array.isArray(payload.store_ids) ? (payload.store_ids as number[]) : null,
         is_active: payload.is_active !== false,
     }
 }

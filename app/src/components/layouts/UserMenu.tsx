@@ -22,11 +22,7 @@ interface UserMenuProps {
  * アバターボタンを押すとメニューが開く。
  * ログアウト以外の項目の処理は未実装。
  */
-export const UserMenu = ({
-    userName = "ゲスト",
-    personalId,
-    avatarSrc,
-}: UserMenuProps) => {
+export const UserMenu = ({ userName = "ゲスト", personalId, avatarSrc }: UserMenuProps) => {
     const [isOpen, setIsOpen] = useState(false)
     const containerRef = useRef<HTMLDivElement>(null)
     const panelRef = useRef<HTMLDivElement>(null)

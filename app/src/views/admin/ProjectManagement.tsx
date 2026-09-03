@@ -1,32 +1,21 @@
 "use client"
 
-import { Table } from "@/components/base/display/Table";
-import { Select } from "@/components/base/forms/Select";
-import { Modal } from "@/components/base/overlays/Modal";
+import { Table } from "@/components/base/display/Table"
+import { Select } from "@/components/base/forms/Select"
+import { Modal } from "@/components/base/overlays/Modal"
 import { projectSchema, validate } from "@/lib/validation"
-import {
-    createProject,
-    deleteProject,
-    getProjectsAdmin,
-    updateProject,
-} from "@/api/Project"
+import { createProject, deleteProject, getProjectsAdmin, updateProject } from "@/api/Project"
 import { getCompanies } from "@/api/Company"
 import { getSchoolDivisions } from "@/api/School"
 import { getStoresAdmin } from "@/api/Store"
-import { Alert } from "@/components/base/feedback/Alert";
-import { Button } from "@/components/base/buttons/Button";
-import { Card } from "@/components/base/display/Card";
-import { Checkbox } from "@/components/base/forms/Checkbox";
-import { CheckboxGroup } from "@/components/base/forms/CheckboxGroup";
-import { CopyButton } from "@/components/base/buttons/CopyButton";
-import { Input } from "@/components/base/forms/Input";
-import type {
-    Company,
-    Project,
-    SchoolDivision,
-    SchoolDivisionPeriod,
-    Store,
-} from "@/types/admin"
+import { Alert } from "@/components/base/feedback/Alert"
+import { Button } from "@/components/base/buttons/Button"
+import { Card } from "@/components/base/display/Card"
+import { Checkbox } from "@/components/base/forms/Checkbox"
+import { CheckboxGroup } from "@/components/base/forms/CheckboxGroup"
+import { CopyButton } from "@/components/base/buttons/CopyButton"
+import { Input } from "@/components/base/forms/Input"
+import type { Company, Project, SchoolDivision, SchoolDivisionPeriod, Store } from "@/types/admin"
 import { useEffect, useState } from "react"
 
 /** 学校区分ごとの受付期間の入力状態。チェックが外れている区分は送信しない */
@@ -71,13 +60,12 @@ export const ProjectManagement = () => {
         setError(null)
 
         // 互いに依存しないので並列で取得する
-        const [projectsResult, storesResult, companiesResult, divisionsResult] =
-            await Promise.all([
-                getProjectsAdmin(),
-                getStoresAdmin(),
-                getCompanies(),
-                getSchoolDivisions(),
-            ])
+        const [projectsResult, storesResult, companiesResult, divisionsResult] = await Promise.all([
+            getProjectsAdmin(),
+            getStoresAdmin(),
+            getCompanies(),
+            getSchoolDivisions(),
+        ])
 
         setLoading(false)
 
@@ -185,9 +173,7 @@ export const ProjectManagement = () => {
         }
 
         if (result.success) {
-            setSuccess(
-                editingProject ? "プロジェクトを更新しました" : "プロジェクトを作成しました"
-            )
+            setSuccess(editingProject ? "プロジェクトを更新しました" : "プロジェクトを作成しました")
             setIsDialogOpen(false)
             fetchData()
         } else {
@@ -219,10 +205,7 @@ export const ProjectManagement = () => {
         }))
     }
 
-    const updatePeriod = (
-        divisionId: number,
-        patch: Partial<DivisionPeriodInput>
-    ) => {
+    const updatePeriod = (divisionId: number, patch: Partial<DivisionPeriodInput>) => {
         setPeriods((prev) => ({
             ...prev,
             [divisionId]: {
@@ -268,8 +251,8 @@ export const ProjectManagement = () => {
                 <Button onClick={handleCreate} label="新規作成" />
             </div>
 
-            {success && <Alert type="success" message={success} />}
-            {error && <Alert type="error" message={error} />}
+            {success && <Alert tone="success" message={success} />}
+            {error && <Alert tone="danger" message={error} />}
 
             <Card title={`プロジェクト一覧（${projects.length}件）`}>
                 <Table
@@ -278,7 +261,11 @@ export const ProjectManagement = () => {
                     emptyMessage="プロジェクトが見つかりません"
                     getRowId={(project) => project.id}
                     columns={[
-                        { id: "project_code", header: "プロジェクトコード", accessor: "project_code" },
+                        {
+                            id: "project_code",
+                            header: "プロジェクトコード",
+                            accessor: "project_code",
+                        },
                         { id: "name", header: "プロジェクト名", accessor: "name" },
                         {
                             id: "company_id",
@@ -292,9 +279,7 @@ export const ProjectManagement = () => {
                             accessor: "start_date",
                             // 期間は学校区分ごとに持つため、一覧では全区分の最早〜最遅を出す
                             format: (_value, row) =>
-                                row.start_date
-                                    ? `${row.start_date} 〜 ${row.end_date}`
-                                    : "未設定",
+                                row.start_date ? `${row.start_date} 〜 ${row.end_date}` : "未設定",
                         },
                         {
                             id: "is_accepting",
@@ -318,12 +303,26 @@ export const ProjectManagement = () => {
                             format: (value) =>
                                 `${(value as SchoolDivisionPeriod[] | undefined)?.length ?? 0}件`,
                         },
-                        { id: "is_enabled", header: "状態", accessor: "is_enabled", type: "boolean" },
+                        {
+                            id: "is_enabled",
+                            header: "状態",
+                            accessor: "is_enabled",
+                            type: "boolean",
+                        },
                     ]}
                     actions={[
-                        { id: "url", label: "予約URL", onClick: (project) => setUrlTarget(project) },
+                        {
+                            id: "url",
+                            label: "予約URL",
+                            onClick: (project) => setUrlTarget(project),
+                        },
                         { id: "edit", label: "編集", onClick: (project) => handleEdit(project) },
-                        { id: "delete", label: "削除", destructive: true, onClick: (project) => setDeleteTarget(project) },
+                        {
+                            id: "delete",
+                            label: "削除",
+                            destructive: true,
+                            onClick: (project) => setDeleteTarget(project),
+                        },
                     ]}
                 />
             </Card>
@@ -334,10 +333,22 @@ export const ProjectManagement = () => {
                 onOpenChange={setIsDialogOpen}
                 title={editingProject ? "プロジェクト編集" : "プロジェクト新規作成"}
                 size="lg"
-                contentClassName="max-h-[90vh] overflow-y-auto"
+                scrollableBody
                 actions={[
-                    { id: "cancel", label: "キャンセル", variant: "secondary", onClick: () => setIsDialogOpen(false) },
-                    { id: "submit", label: editingProject ? "更新" : "作成", variant: "primary", onClick: handleSubmit },
+                    {
+                        id: "cancel",
+                        label: "キャンセル",
+                        tone: "neutral" as const,
+                        variant: "outlined" as const,
+                        onClick: () => setIsDialogOpen(false),
+                    },
+                    {
+                        id: "submit",
+                        label: editingProject ? "更新" : "作成",
+                        tone: "info" as const,
+                        variant: "filled" as const,
+                        onClick: handleSubmit,
+                    },
                 ]}
             >
                 <div className="space-y-4">
@@ -379,9 +390,7 @@ export const ProjectManagement = () => {
                         label="説明"
                         fullWidth
                         value={formData.description}
-                        onChange={(e) =>
-                            setFormData({ ...formData, description: e.target.value })
-                        }
+                        onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                         placeholder="プロジェクトの説明"
                     />
 
@@ -416,10 +425,7 @@ export const ProjectManagement = () => {
                         />
                     </div>
 
-                    <CheckboxGroup
-                        label="対象店舗"
-                        className="border rounded-md p-4 max-h-40 overflow-y-auto"
-                    >
+                    <CheckboxGroup label="対象店舗" bordered scrollable>
                         {stores.map((store) => (
                             <Checkbox
                                 key={store.id}
@@ -500,7 +506,8 @@ export const ProjectManagement = () => {
                     {
                         id: "close",
                         label: "閉じる",
-                        variant: "secondary",
+                        tone: "neutral" as const,
+                        variant: "outlined" as const,
                         onClick: () => setUrlTarget(null),
                     },
                 ]}
@@ -511,7 +518,7 @@ export const ProjectManagement = () => {
                     </p>
                     {urlTarget && !urlTarget.is_accepting && (
                         <Alert
-                            type="warning"
+                            tone="warning"
                             message="このプロジェクトは現在受付期間外です。URLを開いても予約できません。"
                         />
                     )}
@@ -528,7 +535,7 @@ export const ProjectManagement = () => {
                                     <code className="flex-1 text-xs break-all text-gray-600 dark:text-gray-300">
                                         {url}
                                     </code>
-                                    <CopyButton text={url} size="sm" variant="outline" />
+                                    <CopyButton text={url} size="sm" variant="outlined" />
                                 </div>
                             ))}
                     </div>
@@ -542,12 +549,25 @@ export const ProjectManagement = () => {
                 title="プロジェクトを削除しますか？"
                 size="sm"
                 actions={[
-                    { id: "cancel", label: "キャンセル", variant: "secondary", onClick: () => setDeleteTarget(null) },
-                    { id: "action", label: "削除する", variant: "danger", onClick: handleDelete },
+                    {
+                        id: "cancel",
+                        label: "キャンセル",
+                        tone: "neutral" as const,
+                        variant: "outlined" as const,
+                        onClick: () => setDeleteTarget(null),
+                    },
+                    {
+                        id: "action",
+                        label: "削除する",
+                        tone: "danger" as const,
+                        variant: "filled" as const,
+                        onClick: handleDelete,
+                    },
                 ]}
             >
                 <p className="text-sm text-gray-600 dark:text-gray-300">
-                    この操作は取り消せません。プロジェクト「{deleteTarget?.name}」を削除してもよろしいですか？
+                    この操作は取り消せません。プロジェクト「{deleteTarget?.name}
+                    」を削除してもよろしいですか？
                 </p>
             </Modal>
         </div>

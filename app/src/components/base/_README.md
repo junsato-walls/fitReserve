@@ -10,7 +10,7 @@ fitReserve固有のドメイン知識・API呼び出し・命名を持ち込ま�
 | フォルダ | 用途 | 含まれるもの |
 |---|---|---|
 | `buttons/` | 操作を促す | Button, CopyButton, IconButton, LinkButton |
-| `display/` | データ・情報の見せ方を決める | Avatar, Badge, Card, Carousel, ChatBubble, Table, Tabs |
+| `display/` | データ・情報の見せ方を決める | Avatar, Badge, Card, Carousel, ChatBubble, Table, Tabs, Timetable |
 | `navigation/` | 画面間の移動・現在位置を示す | BottomNavigation, Breadcrumb, Pagination |
 | `feedback/` | 状態や結果を伝える | Alert, Spinner, Toast |
 | `forms/` | ユーザー入力を受け取る | Checkbox, CheckboxGroup, CommentBox, Datepicker, Dropdown, FileInput, Input, Radio, RadioGroup, Select, Textarea |
@@ -23,10 +23,24 @@ fitReserve固有のドメイン知識・API呼び出し・命名を持ち込ま�
 ページ全体の骨組み（Sidebar, Breadcrumb を含む共通レイアウト）は
 `src/components/layouts/` に置く。粒度が異なるので混同しないこと。
 
+ほかに `tokens.ts`（色・大きさの共通語彙）と `buttons/styles.ts`（ボタン系の共通配色）を置く。
+
 ## 設計原則
 
 **自由度をなるべく減らし、統一感のある画面を作りやすくする。**
 見た目の指定を画面側に書かせず、propsで用途を受け取って `base/` 側が配色や余白を決める。
+
+### 語彙は `tokens.ts` に集約する
+
+| prop | 意味 | 値 |
+|---|---|---|
+| `tone` | 用途を表す**色** | `neutral` / `info` / `success` / `warning` / `danger` |
+| `variant` | **形**（色は持たせない） | `filled` / `outlined` / `soft` / `ghost` |
+| `size` | 大きさ | `sm` / `md` / `lg` |
+
+- **色を表す prop は `tone` だけ。** `color="red"` のような生の色名は作らない
+- **`className` は受け取らない。** 見た目の調整が必要になったら、用途を表すpropsを `base/` 側に足す
+- 幅の段階が必要な `Modal` / `Drawer` / `Avatar` だけは独自の `size` 語彙を持つ
 
 詳細な設計ルールは [COMPONENT_ORGANIZATION.md](../../../../docs/COMPONENT_ORGANIZATION.md) の
 「`base/` のAPI設計原則」を参照。

@@ -26,7 +26,7 @@ function toErrorMessage(error: unknown, fallback: string): string {
 export async function getReservationProject(
     companySlug: string,
     projectId: number,
-    storeId: number
+    storeId: number,
 ): Promise<{
     success: boolean
     data: ProjectPublic | null
@@ -89,7 +89,7 @@ export async function getStores(projectId?: number): Promise<{
  */
 export async function getSchools(
     storeId?: number,
-    projectId?: number
+    projectId?: number,
 ): Promise<{
     success: boolean
     data: SchoolPublic[] | null
@@ -116,7 +116,7 @@ export async function getSchools(
 export async function getSchedules(
     storeId: number,
     startDate: string,
-    endDate: string
+    endDate: string,
 ): Promise<{
     success: boolean
     data: SchedulePublic[] | null
@@ -140,9 +140,7 @@ export async function getSchedules(
 /**
  * 予約を作成
  */
-export async function createReservation(
-    data: ReservationCreate
-): Promise<{
+export async function createReservation(data: ReservationCreate): Promise<{
     success: boolean
     data: Reservation | null
     error?: string
@@ -160,17 +158,13 @@ export async function createReservation(
 /**
  * 予約番号で予約を検索
  */
-export async function getReservationByNumber(
-    reservationNumber: string
-): Promise<{
+export async function getReservationByNumber(reservationNumber: string): Promise<{
     success: boolean
     data: Reservation | null
     error?: string
 }> {
     try {
-        const response = await api.get<Reservation>(
-            `/public/reservations/${reservationNumber}`
-        )
+        const response = await api.get<Reservation>(`/public/reservations/${reservationNumber}`)
         return { success: true, data: response.data }
     } catch (error: unknown) {
         console.error("Failed to fetch reservation:", error)
@@ -212,9 +206,7 @@ export async function getReservationsForStaff(params?: {
 /**
  * 予約詳細を取得（スタッフ向け）
  */
-export async function getReservationDetail(
-    reservationId: number
-): Promise<{
+export async function getReservationDetail(reservationId: number): Promise<{
     success: boolean
     data: ReservationWithDetails | null
     error?: string
@@ -234,7 +226,7 @@ export async function getReservationDetail(
  */
 export async function updateReservation(
     reservationId: number,
-    data: ReservationUpdate
+    data: ReservationUpdate,
 ): Promise<{
     success: boolean
     data: Reservation | null
@@ -253,9 +245,7 @@ export async function updateReservation(
 /**
  * 予約をキャンセル（スタッフ向け）
  */
-export async function cancelReservation(
-    reservationId: number
-): Promise<{
+export async function cancelReservation(reservationId: number): Promise<{
     success: boolean
     error?: string
 }> {

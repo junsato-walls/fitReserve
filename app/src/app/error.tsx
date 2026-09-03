@@ -1,17 +1,14 @@
-'use client'
-import { useEffect } from 'react'
+"use client"
+import { useEffect } from "react"
 
 interface ErrorProps {
     error: Error & { digest?: string }
     reset: () => void
 }
 
-export default function Error({
-    error,
-    reset,
-}: ErrorProps) {
+export default function Error({ error, reset }: ErrorProps) {
     useEffect(() => {
-        console.error('Error occurred:', error)
+        console.error("Error occurred:", error)
     }, [error])
 
     return (
@@ -43,16 +40,15 @@ export default function Error({
                     {/* エラーメッセージ */}
                     <div className="mt-2">
                         <p className="text-sm text-gray-500 dark:text-gray-400">
-                            {error.message.includes('fetch') || error.message.includes('API')
-                                ? 'データの取得に失敗しました。ネットワーク接続を確認してください。'
-                                : error.message.includes('token') || error.message.includes('auth')
-                                    ? '認証エラーが発生しました。再度ログインしてください。'
-                                    : 'システムエラーが発生しました。しばらくしてから再度お試しください。'
-                            }
+                            {error.message.includes("fetch") || error.message.includes("API")
+                                ? "データの取得に失敗しました。ネットワーク接続を確認してください。"
+                                : error.message.includes("token") || error.message.includes("auth")
+                                  ? "認証エラーが発生しました。再度ログインしてください。"
+                                  : "システムエラーが発生しました。しばらくしてから再度お試しください。"}
                         </p>
 
                         {/* 開発環境でのみエラー詳細を表示 */}
-                        {process.env.NODE_ENV === 'development' && (
+                        {process.env.NODE_ENV === "development" && (
                             <details className="mt-4 text-left">
                                 <summary className="cursor-pointer text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300">
                                     エラー詳細 (開発環境)
@@ -76,7 +72,7 @@ export default function Error({
 
                         <button
                             type="button"
-                            onClick={() => window.location.href = '/'}
+                            onClick={() => (window.location.href = "/")}
                             className="inline-flex justify-center px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-blue-800 dark:ring-offset-gray-800"
                         >
                             ホームに戻る

@@ -34,10 +34,7 @@ export const ROLE_LABELS: Record<string, string> = {
 export const SCOPED_ROLES: readonly string[] = ["staff", "readonly"]
 
 /** 指定ロール以上かどうか */
-export function hasMinRole(
-    role: string | undefined | null,
-    minimum: UserRole
-): boolean {
+export function hasMinRole(role: string | undefined | null, minimum: UserRole): boolean {
     return (ROLE_LEVELS[role ?? ""] ?? 0) >= ROLE_LEVELS[minimum]
 }
 

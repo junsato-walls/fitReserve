@@ -1,5 +1,6 @@
 "use client"
 
+import type { UserRole } from "@/types/admin"
 import { Menu } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
@@ -15,7 +16,7 @@ interface HeaderProps {
     /** アバター画像のURL */
     avatarSrc?: string
     /** ロール。管理者機能を出すかの判定に使う */
-    role?: string
+    role?: UserRole
 }
 
 /**
@@ -28,12 +29,15 @@ interface HeaderProps {
  * サイドバーが出せない幅ではメニューを1箇所にまとめるため、
  * スタッフ機能の一覧もアカウント操作もハンバーガー側に集約する。
  */
-export const Header = ({ userName, personalId, avatarSrc, role = "staff" }: HeaderProps) => {
+export const Header = ({ userName, personalId, avatarSrc, role = "readonly" }: HeaderProps) => {
     const [isNavOpen, setIsNavOpen] = useState(false)
 
     return (
-        <header className="sticky top-0 z-40 flex items-center justify-between h-14 px-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
-            <Link href="/" className="flex items-center focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-800 rounded">
+        <header className="z-40 shrink-0 flex items-center justify-between h-14 px-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+            <Link
+                href="/"
+                className="flex items-center focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-800 rounded"
+            >
                 {/* 元画像は 96x50。高さ32pxに合わせて縮小する */}
                 <Image
                     src="/nonoyama.png"

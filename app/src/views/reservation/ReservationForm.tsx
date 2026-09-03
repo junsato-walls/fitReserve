@@ -7,13 +7,13 @@ import {
     getSchools,
     getStore,
 } from "@/api/Reservation"
-import { Button } from "@/components/base/buttons/Button";
-import { Card } from "@/components/base/display/Card";
-import { Alert } from "@/components/base/feedback/Alert";
-import { Datepicker } from "@/components/base/forms/Datepicker";
-import { Input } from "@/components/base/forms/Input";
-import { Select } from "@/components/base/forms/Select";
-import { Textarea } from "@/components/base/forms/Textarea";
+import { Button } from "@/components/base/buttons/Button"
+import { Card } from "@/components/base/display/Card"
+import { Alert } from "@/components/base/feedback/Alert"
+import { Datepicker } from "@/components/base/forms/Datepicker"
+import { Input } from "@/components/base/forms/Input"
+import { Select } from "@/components/base/forms/Select"
+import { Textarea } from "@/components/base/forms/Textarea"
 import { formatDateForApi } from "@/lib/formatDate"
 import { reservationCustomerSchema, validate } from "@/lib/validation"
 import type {
@@ -25,6 +25,16 @@ import type {
 } from "@/types/reservation"
 import { useRouter } from "next/navigation"
 import { useEffect, useMemo, useRef, useState } from "react"
+
+/**
+ * 枠を一意に指す文字列（日付＋開始時刻）
+ *
+ * 枠はDBの行ではなく営業時間から導出したものでidを持たないため、
+ * 選択状態はこの組で持つ。
+ */
+function slotKey(slot: { schedule_date: string; start_time: string }): string {
+    return `${slot.schedule_date}T${slot.start_time}`
+}
 
 /** スケジュールを先読みする月数（カレンダーで移動できる範囲になる） */
 const SCHEDULE_FETCH_MONTHS = 6
@@ -46,11 +56,7 @@ interface ReservationFormProps {
  *   - その店舗が制服を取り扱っている（store_schools）
  *   - 学校の区分が本日受付中である（project_school_divisions）
  */
-export const ReservationForm = ({
-    companySlug,
-    projectId,
-    storeId,
-}: ReservationFormProps) => {
+export const ReservationForm = ({ companySlug, projectId, storeId }: ReservationFormProps) => {
     const router = useRouter()
 
     const [loading, setLoading] = useState(true)
@@ -68,7 +74,9 @@ export const ReservationForm = ({
     // 選択された値
     const [selectedSchoolId, setSelectedSchoolId] = useState<number | null>(null)
     const [selectedDate, setSelectedDate] = useState<Date | undefined>()
-    const [selectedScheduleId, setSelectedScheduleId] = useState<number | null>(null)
+    // 枠はDBの行ではなく営業時間から導出したものなのでidを持たない。
+    // 日付＋開始時刻の組で選択状態を持つ
+    const [selectedSlotKey, setSelectedSlotKey] = useState<string | null>(null)
 
     // 顧客情報
     const [customerInfo, setCustomerInfo] = useState<ReservationCreate>({
@@ -102,30 +110,19 @@ export const ReservationForm = ({
             setLoading(true)
 
             const today = new Date()
-            const until = new Date(
-                today.getFullYear(),
-                today.getMonth() + SCHEDULE_FETCH_MONTHS,
-                0
-            )
+            const until = new Date(today.getFullYear(), today.getMonth() + SCHEDULE_FETCH_MONTHS, 0)
 
-            const [projectResult, storeResult, schoolsResult, schedulesResult] =
-                await Promise.all([
-                    getReservationProject(companySlug, projectId, storeId),
-                    getStore(storeId),
-                    getSchools(storeId, projectId),
-                    getSchedules(
-                        storeId,
-                        formatDateForApi(today),
-                        formatDateForApi(until)
-                    ),
-                ])
+            const [projectResult, storeResult, schoolsResult, schedulesResult] = await Promise.all([
+                getReservationProject(companySlug, projectId, storeId),
+                getStore(storeId),
+                getSchools(storeId, projectId),
+                getSchedules(storeId, formatDateForApi(today), formatDateForApi(until)),
+            ])
 
             setLoading(false)
 
             if (!projectResult.success || !projectResult.data) {
-                setFatalError(
-                    projectResult.error || "この予約URLは無効です。URLをご確認ください。"
-                )
+                setFatalError(projectResult.error || "この予約URLは無効です。URLをご確認ください。")
                 return
             }
             setProject(projectResult.data)
@@ -135,9 +132,7 @@ export const ReservationForm = ({
                 setSchools(schoolsResult.data)
             }
             setSchedules(
-                schedulesResult.success && schedulesResult.data
-                    ? schedulesResult.data
-                    : []
+                schedulesResult.success && schedulesResult.data ? schedulesResult.data : [],
             )
         }
         fetchAll()
@@ -155,7 +150,7 @@ export const ReservationForm = ({
         setError(null)
     }, [
         selectedSchoolId,
-        selectedScheduleId,
+        selectedSlotKey,
         // どの項目を直してもエラーを消したいので、顧客情報はまとめて監視する
         customerInfo,
     ])
@@ -163,36 +158,35 @@ export const ReservationForm = ({
     /** 予約可能な枠が残っている日付（yyyy-MM-dd）の集合 */
     const availableDates = useMemo(() => {
         return new Set(
-            schedules
-                .filter((s) => s.is_available && s.available_count > 0)
-                .map((s) => s.schedule_date)
+            // 満席の枠はAPIから返らないため、返ってきた日付＝予約できる日
+            schedules.map((s) => s.schedule_date),
         )
     }, [schedules])
 
     /** 予約可能な日付をDateの配列にしたもの（Datepickerへ渡す） */
     const selectableDates = useMemo(
-        () => Array.from(availableDates).map((date) => {
-            const [year, month, day] = date.split("-").map(Number)
-            return new Date(year, month - 1, day)
-        }),
-        [availableDates]
+        () =>
+            Array.from(availableDates).map((date) => {
+                const [year, month, day] = date.split("-").map(Number)
+                return new Date(year, month - 1, day)
+            }),
+        [availableDates],
     )
 
     const selectedSchool = schools.find((s) => s.id === selectedSchoolId)
-    const selectedSchedule = schedules.find((s) => s.id === selectedScheduleId)
+    const selectedSchedule = schedules.find((s) => slotKey(s) === selectedSlotKey)
 
     /** 選択中の学校の区分に対応する受付期間 */
     const acceptingPeriod = useMemo(() => {
         if (!project || !selectedSchool) return undefined
         return project.accepting_divisions.find(
-            (d) => d.school_divisions_id === selectedSchool.school_divisions_id
+            (d) => d.school_divisions_id === selectedSchool.school_divisions_id,
         )
     }, [project, selectedSchool])
 
     /** 区分IDから区分名を引く（学校の選択肢に添える） */
     const divisionName = (divisionId: number) =>
-        project?.accepting_divisions.find((d) => d.school_divisions_id === divisionId)
-            ?.name ?? ""
+        project?.accepting_divisions.find((d) => d.school_divisions_id === divisionId)?.name ?? ""
 
     /**
      * 予約できる日付の範囲
@@ -225,7 +219,7 @@ export const ReservationForm = ({
     const handleSchoolChange = (value: string) => {
         setSelectedSchoolId(Number(value))
         setSelectedDate(undefined)
-        setSelectedScheduleId(null)
+        setSelectedSlotKey(null)
     }
 
     /** 日付を変更したら時間帯の選択は解除する */
@@ -236,7 +230,7 @@ export const ReservationForm = ({
             const [year, month, day] = value.split("-").map(Number)
             setSelectedDate(new Date(year, month - 1, day))
         }
-        setSelectedScheduleId(null)
+        setSelectedSlotKey(null)
     }
 
     const handleSubmit = async () => {
@@ -284,16 +278,24 @@ export const ReservationForm = ({
     // ---------------------------------------------------------------- 完了画面
     if (reservationNumber) {
         return (
-            <Card className="max-w-2xl mx-auto" title="予約完了">
+            <Card maxWidth="2xl" center title="予約完了">
                 <div className="space-y-4">
-                    <Alert type="success" message="予約が完了しました。以下の予約番号を控えてください。" />
+                    <Alert
+                        tone="success"
+                        message="予約が完了しました。以下の予約番号を控えてください。"
+                    />
                     <div className="text-center space-y-4">
                         <div>
                             <p className="text-sm text-gray-500 dark:text-gray-400">予約番号</p>
-                            <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">{reservationNumber}</p>
+                            <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">
+                                {reservationNumber}
+                            </p>
                         </div>
                         <div className="space-y-2 text-sm">
-                            <p>予約日時: {selectedSchedule?.schedule_date} {selectedSchedule?.start_time}</p>
+                            <p>
+                                予約日時: {selectedSchedule?.schedule_date}{" "}
+                                {selectedSchedule?.start_time}
+                            </p>
                             <p>店舗: {store?.name}</p>
                             <p>学校: {selectedSchool?.name}</p>
                         </div>
@@ -301,8 +303,12 @@ export const ReservationForm = ({
                     <div className="flex gap-2">
                         <Button onClick={() => router.push("/")} label="トップへ戻る" />
                         <Button
-                            variant="outline"
-                            onClick={() => router.push(`/reservations/check?number=${reservationNumber}`)} label="予約内容を確認" />
+                            variant="outlined"
+                            onClick={() =>
+                                router.push(`/reservations/check?number=${reservationNumber}`)
+                            }
+                            label="予約内容を確認"
+                        />
                     </div>
                 </div>
             </Card>
@@ -312,9 +318,9 @@ export const ReservationForm = ({
     // ------------------------------------------------------------ URLが不正
     if (fatalError) {
         return (
-            <Card className="max-w-2xl mx-auto" title="予約ページを表示できません">
+            <Card maxWidth="2xl" center title="予約ページを表示できません">
                 <div className="space-y-4">
-                    <Alert type="error" message={fatalError} />
+                    <Alert tone="danger" message={fatalError} />
                     <p className="text-sm text-gray-600 dark:text-gray-300">
                         お手数ですが、掲載元のホームページからもう一度お進みください。
                     </p>
@@ -329,7 +335,8 @@ export const ReservationForm = ({
     // ---------------------------------------------------------------- 入力画面
     return (
         <Card
-            className="max-w-4xl mx-auto"
+            maxWidth="4xl"
+            center
             title={project ? `${project.name}｜採寸予約` : "採寸予約フォーム"}
             description={
                 store
@@ -338,20 +345,20 @@ export const ReservationForm = ({
             }
         >
             <div className="space-y-8">
-                <div ref={errorRef}>
-                    {error && <Alert type="error" message={error} />}
-                </div>
+                <div ref={errorRef}>{error && <Alert tone="danger" message={error} />}</div>
 
                 {!loading && !isAccepting && (
                     <Alert
-                        type="warning"
+                        tone="warning"
                         message="現在は予約受付期間外です。受付開始までお待ちください。"
                     />
                 )}
 
                 {/* 予約対象 */}
                 <section className="space-y-4">
-                    <h3 className="text-base font-semibold text-gray-900 dark:text-white">予約対象</h3>
+                    <h3 className="text-base font-semibold text-gray-900 dark:text-white">
+                        予約対象
+                    </h3>
 
                     {/* プロジェクトと店舗はURLで確定しているため、変更させない */}
                     <dl className="grid grid-cols-[8rem_1fr] gap-y-2 rounded border p-4 text-sm dark:border-gray-700">
@@ -392,7 +399,9 @@ export const ReservationForm = ({
 
                 {/* 予約日時 */}
                 <section className="space-y-4 border-t pt-6">
-                    <h3 className="text-base font-semibold text-gray-900 dark:text-white">予約日時</h3>
+                    <h3 className="text-base font-semibold text-gray-900 dark:text-white">
+                        予約日時
+                    </h3>
 
                     {!selectedSchoolId ? (
                         <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -424,20 +433,21 @@ export const ReservationForm = ({
                                     </p>
                                 ) : dateSchedules.length === 0 ? (
                                     <Alert
-                                        type="warning"
+                                        tone="warning"
                                         message="選択した日付は予約可能な時間帯がありません。別の日付を選択してください。"
                                     />
                                 ) : (
                                     <div className="grid grid-cols-2 gap-2">
                                         {dateSchedules.map((schedule) => (
                                             <Button
-                                                key={schedule.id}
+                                                key={slotKey(schedule)}
                                                 type="button"
                                                 label={schedule.start_time.substring(0, 5)}
-                                                subLabel={schedule.available_count > 0 ? `残り${schedule.available_count}` : "満席"}
-                                                selected={selectedScheduleId === schedule.id}
-                                                onClick={() => setSelectedScheduleId(schedule.id)}
-                                                disabled={schedule.available_count === 0}
+                                                subLabel={`残り${schedule.available_count}`}
+                                                selected={selectedSlotKey === slotKey(schedule)}
+                                                onClick={() =>
+                                                    setSelectedSlotKey(slotKey(schedule))
+                                                }
                                             />
                                         ))}
                                     </div>
@@ -449,7 +459,9 @@ export const ReservationForm = ({
 
                 {/* お客様情報 */}
                 <section className="space-y-4 border-t pt-6">
-                    <h3 className="text-base font-semibold text-gray-900 dark:text-white">お客様情報</h3>
+                    <h3 className="text-base font-semibold text-gray-900 dark:text-white">
+                        お客様情報
+                    </h3>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <Input
@@ -467,7 +479,10 @@ export const ReservationForm = ({
                             fullWidth
                             value={customerInfo.customer_name_kana}
                             onChange={(e) =>
-                                setCustomerInfo({ ...customerInfo, customer_name_kana: e.target.value })
+                                setCustomerInfo({
+                                    ...customerInfo,
+                                    customer_name_kana: e.target.value,
+                                })
                             }
                             placeholder="ヤマダタロウ"
                         />
@@ -535,7 +550,9 @@ export const ReservationForm = ({
 
                 {/* 採寸情報 */}
                 <section className="space-y-4 border-t pt-6">
-                    <h3 className="text-base font-semibold text-gray-900 dark:text-white">採寸情報（任意）</h3>
+                    <h3 className="text-base font-semibold text-gray-900 dark:text-white">
+                        採寸情報（任意）
+                    </h3>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <Input
@@ -573,7 +590,9 @@ export const ReservationForm = ({
                             onChange={(e) =>
                                 setCustomerInfo({
                                     ...customerInfo,
-                                    foot_size: e.target.value ? parseFloat(e.target.value) : undefined,
+                                    foot_size: e.target.value
+                                        ? parseFloat(e.target.value)
+                                        : undefined,
                                 })
                             }
                             placeholder="25.5"
@@ -584,16 +603,16 @@ export const ReservationForm = ({
                         label="備考"
                         fullWidth
                         value={customerInfo.memo}
-                        onChange={(e) =>
-                            setCustomerInfo({ ...customerInfo, memo: e.target.value })
-                        }
+                        onChange={(e) => setCustomerInfo({ ...customerInfo, memo: e.target.value })}
                         placeholder="ご要望などがあればご記入ください"
                     />
                 </section>
 
                 {/* 確認して送信 */}
                 <section className="space-y-4 border-t pt-6">
-                    <h3 className="text-base font-semibold text-gray-900 dark:text-white">予約内容の確認</h3>
+                    <h3 className="text-base font-semibold text-gray-900 dark:text-white">
+                        予約内容の確認
+                    </h3>
 
                     <dl className="grid grid-cols-[8rem_1fr] gap-y-2 rounded border p-4 text-sm">
                         <dt className="text-gray-500 dark:text-gray-400">キャンペーン</dt>

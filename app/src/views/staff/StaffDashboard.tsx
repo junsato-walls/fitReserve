@@ -1,12 +1,13 @@
 "use client"
 
-import { Table, type BadgeTone } from "@/components/base/display/Table";
+import { Table } from "@/components/base/display/Table"
+import type { Tone } from "@/components/base/tokens"
 import type { ReservationWithDetails } from "@/types/reservation"
 import { formatDateForApi } from "@/lib/formatDate"
 import { getReservationsForStaff } from "@/api/Reservation"
-import { Alert } from "@/components/base/feedback/Alert";
-import { Button } from "@/components/base/buttons/Button";
-import { Card } from "@/components/base/display/Card";
+import { Alert } from "@/components/base/feedback/Alert"
+import { Button } from "@/components/base/buttons/Button"
+import { Card } from "@/components/base/display/Card"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 
@@ -41,11 +42,11 @@ export const StaffDashboard = () => {
         // 5件の取得は互いに依存しないため並列に実行する。
         // 直列にすると Server Action の往復コストがそのまま5倍積み上がる。
         const [
-            todayResult,      // 今日の予約
-            weekResult,       // 今週の予約
-            recentResult,     // 最近の予約（全体）
-            pendingResult,    // 未確認の予約
-            confirmedResult,  // 確定済みの予約
+            todayResult, // 今日の予約
+            weekResult, // 今週の予約
+            recentResult, // 最近の予約（全体）
+            pendingResult, // 未確認の予約
+            confirmedResult, // 確定済みの予約
         ] = await Promise.all([
             getReservationsForStaff({ date_from: todayStr, date_to: todayStr }),
             getReservationsForStaff({ date_from: todayStr, date_to: weekLaterStr }),
@@ -91,7 +92,7 @@ export const StaffDashboard = () => {
     }
 
     // 色そのものではなく用途を返す。実際の配色は base/Table が持つ
-    const getStatusTone = (status: string): BadgeTone => {
+    const getStatusTone = (status: string): Tone => {
         switch (status) {
             case "pending":
                 return "warning"
@@ -107,9 +108,7 @@ export const StaffDashboard = () => {
     }
 
     if (error) {
-        return (
-            <Alert type="error" message={error} />
-        )
+        return <Alert tone="danger" message={error} />
     }
 
     return (
@@ -117,15 +116,11 @@ export const StaffDashboard = () => {
             {/* 統計カード */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <Card title="本日の予約">
-                    <div className="text-3xl font-bold">
-                        {loading ? "-" : stats.todayCount}
-                    </div>
+                    <div className="text-3xl font-bold">{loading ? "-" : stats.todayCount}</div>
                 </Card>
 
                 <Card title="今週の予約">
-                    <div className="text-3xl font-bold">
-                        {loading ? "-" : stats.weekCount}
-                    </div>
+                    <div className="text-3xl font-bold">{loading ? "-" : stats.weekCount}</div>
                 </Card>
 
                 <Card title="未確認">
@@ -146,47 +141,52 @@ export const StaffDashboard = () => {
                 title="最近の予約"
                 headerActions={
                     <Button
-                        variant="outline"
+                        variant="outlined"
                         size="sm"
                         onClick={() => router.push("/staff/reservations")}
                         label="すべて見る"
                     />
                 }
             >
-                    <Table
-                        data={recentReservations}
-                        loading={loading}
-                        emptyMessage="予約が見つかりません"
-                        getRowId={(reservation) => reservation.id}
-                        columns={[
-                            { id: "reservation_number", header: "予約番号", accessor: "reservation_number" },
-                            {
-                                id: "reservation_date",
-                                header: "予約日時",
-                                accessor: "reservation_date",
-                                format: (value, row) =>
-                                    `${value ?? ""} ${row.reservation_time?.substring(0, 5) ?? ""}`.trim(),
-                            },
-                            { id: "customer_name", header: "顧客名", accessor: "customer_name" },
-                            { id: "store_name", header: "店舗", accessor: "store_name" },
-                            { id: "school_name", header: "学校", accessor: "school_name" },
-                            {
-                                id: "status",
-                                header: "ステータス",
-                                accessor: "status",
-                                type: "badge",
-                                format: (value) => getStatusLabel(String(value)),
-                                badgeTone: (value) => getStatusTone(String(value)),
-                            },
-                        ]}
-                        actions={[
-                            {
-                                id: "detail",
-                                label: "詳細",
-                                onClick: (reservation) => router.push(`/staff/reservations/${reservation.id}`),
-                            },
-                        ]}
-                    />
+                <Table
+                    data={recentReservations}
+                    loading={loading}
+                    emptyMessage="予約が見つかりません"
+                    getRowId={(reservation) => reservation.id}
+                    columns={[
+                        {
+                            id: "reservation_number",
+                            header: "予約番号",
+                            accessor: "reservation_number",
+                        },
+                        {
+                            id: "reservation_date",
+                            header: "予約日時",
+                            accessor: "reservation_date",
+                            format: (value, row) =>
+                                `${value ?? ""} ${row.reservation_time?.substring(0, 5) ?? ""}`.trim(),
+                        },
+                        { id: "customer_name", header: "顧客名", accessor: "customer_name" },
+                        { id: "store_name", header: "店舗", accessor: "store_name" },
+                        { id: "school_name", header: "学校", accessor: "school_name" },
+                        {
+                            id: "status",
+                            header: "ステータス",
+                            accessor: "status",
+                            type: "badge",
+                            format: (value) => getStatusLabel(String(value)),
+                            badgeTone: (value) => getStatusTone(String(value)),
+                        },
+                    ]}
+                    actions={[
+                        {
+                            id: "detail",
+                            label: "詳細",
+                            onClick: (reservation) =>
+                                router.push(`/staff/reservations/${reservation.id}`),
+                        },
+                    ]}
+                />
             </Card>
         </div>
     )

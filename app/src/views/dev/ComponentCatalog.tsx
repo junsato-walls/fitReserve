@@ -49,7 +49,15 @@ import { Header } from "@/components/layouts/Header"
 import { ThemeToggle } from "@/components/layouts/ThemeToggle"
 
 /** 節の見出しと中身をまとめる */
-const Section = ({ title, note, children }: { title: string; note?: string; children: React.ReactNode }) => (
+const Section = ({
+    title,
+    note,
+    children,
+}: {
+    title: string
+    note?: string
+    children: React.ReactNode
+}) => (
     <section className="border-t border-gray-200 dark:border-gray-700 pt-8">
         <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">{title}</h2>
         {note && <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{note}</p>}
@@ -101,21 +109,23 @@ export const ComponentCatalog = () => {
                 </header>
 
                 <Section title="buttons" note="操作を促す部品">
-                    <Row label="Button / variant">
-                        <Button label="primary" />
-                        <Button label="secondary" variant="secondary" />
-                        <Button label="success" variant="success" />
-                        <Button label="danger" variant="danger" />
-                        <Button label="warning" variant="warning" />
-                        <Button label="outline" variant="outline" />
+                    <Row label="Button / tone（用途の色）">
+                        <Button label="info" tone="info" />
+                        <Button label="neutral" tone="neutral" />
+                        <Button label="success" tone="success" />
+                        <Button label="warning" tone="warning" />
+                        <Button label="danger" tone="danger" />
+                    </Row>
+                    <Row label="Button / variant（見た目の型）">
+                        <Button label="filled" variant="filled" />
+                        <Button label="outlined" variant="outlined" />
+                        <Button label="soft" variant="soft" />
                         <Button label="ghost" variant="ghost" />
                     </Row>
                     <Row label="Button / size">
-                        <Button label="xs" size="xs" />
                         <Button label="sm" size="sm" />
                         <Button label="md" size="md" />
                         <Button label="lg" size="lg" />
-                        <Button label="xl" size="xl" />
                     </Row>
                     <Row label="Button / state">
                         <Button label="通常" />
@@ -125,16 +135,34 @@ export const ComponentCatalog = () => {
                     </Row>
                     <Row label="IconButton / CopyButton / LinkButton">
                         <IconButton icon={<EditIcon size="sm" />} srLabel="編集" />
-                        <IconButton icon={<DeleteIcon size="sm" />} srLabel="削除" variant="outline" />
-                        <IconButton icon={<DownloadIcon size="sm" />} srLabel="保存" variant="ghost" />
+                        <IconButton
+                            icon={<DeleteIcon size="sm" />}
+                            srLabel="削除"
+                            variant="outlined"
+                        />
+                        <IconButton
+                            icon={<DownloadIcon size="sm" />}
+                            srLabel="保存"
+                            tone="neutral"
+                            variant="ghost"
+                        />
                         <CopyButton text="コピーされる文字列" />
                         <LinkButton href="#">リンクボタン</LinkButton>
                     </Row>
                 </Section>
 
-                <Section title="forms" note="入力を受け取る部品。同じ size で高さが揃うかを確認する">
+                <Section
+                    title="forms"
+                    note="入力を受け取る部品。同じ size で高さが揃うかを確認する"
+                >
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <Input label="テキスト" placeholder="入力してください" fullWidth value={text} onChange={(e) => setText(e.target.value)} />
+                        <Input
+                            label="テキスト"
+                            placeholder="入力してください"
+                            fullWidth
+                            value={text}
+                            onChange={(e) => setText(e.target.value)}
+                        />
                         <Select
                             label="店舗"
                             fullWidth
@@ -147,7 +175,12 @@ export const ComponentCatalog = () => {
                             ]}
                         />
                         <Input label="エラー時" fullWidth error="必須項目です" required />
-                        <Select label="補足付き" fullWidth helperText="空き枠のある店舗のみ表示" options={[{ value: "shibuya", label: "渋谷店" }]} />
+                        <Select
+                            label="補足付き"
+                            fullWidth
+                            helperText="空き枠のある店舗のみ表示"
+                            options={[{ value: "shibuya", label: "渋谷店" }]}
+                        />
                     </div>
                     <Textarea label="備考" fullWidth placeholder="自由記述" />
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -155,10 +188,26 @@ export const ComponentCatalog = () => {
                         <FileInput label="ファイル" fullWidth />
                     </div>
                     <Row label="Checkbox / Radio">
-                        <Checkbox label="同意する" checked={checked} onChange={(e) => setChecked(e.target.checked)} />
+                        <Checkbox
+                            label="同意する"
+                            checked={checked}
+                            onChange={(e) => setChecked(e.target.checked)}
+                        />
                         <Checkbox label="無効" disabled />
-                        <Radio label="選択肢A" name="sample" value="a" checked={radio === "a"} onChange={() => setRadio("a")} />
-                        <Radio label="選択肢B" name="sample" value="b" checked={radio === "b"} onChange={() => setRadio("b")} />
+                        <Radio
+                            label="選択肢A"
+                            name="sample"
+                            value="a"
+                            checked={radio === "a"}
+                            onChange={() => setRadio("a")}
+                        />
+                        <Radio
+                            label="選択肢B"
+                            name="sample"
+                            value="b"
+                            checked={radio === "b"}
+                            onChange={() => setRadio("b")}
+                        />
                     </Row>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <CheckboxGroup label="オプション" required>
@@ -202,7 +251,9 @@ export const ComponentCatalog = () => {
                         </p>
                     </Card>
                     <div>
-                        <p className="text-xs font-mono text-gray-500 dark:text-gray-400 mb-2">Table</p>
+                        <p className="text-xs font-mono text-gray-500 dark:text-gray-400 mb-2">
+                            Table
+                        </p>
                         <Table<SampleRow>
                             data={TABLE_ROWS}
                             getRowId={(row) => row.id}
@@ -210,7 +261,12 @@ export const ComponentCatalog = () => {
                             columns={[
                                 { id: "name", header: "顧客名", accessor: "name" },
                                 { id: "store", header: "店舗", accessor: "store" },
-                                { id: "status", header: "ステータス", accessor: "status", type: "badge" },
+                                {
+                                    id: "status",
+                                    header: "ステータス",
+                                    accessor: "status",
+                                    type: "badge",
+                                },
                             ]}
                         />
                     </div>
@@ -226,9 +282,32 @@ export const ComponentCatalog = () => {
                                 { id: 2, label: "新宿店", description: "1件" },
                             ]}
                             items={[
-                                { id: 1, columnId: 1, start: "10:00", end: "11:30", title: "空き2／3", tone: "success" },
-                                { id: 2, columnId: 1, start: "12:30", end: "13:00", title: "満席", tone: "danger", locked: true, lockedReason: "予約が入っている枠は移動できません" },
-                                { id: 3, columnId: 2, start: "11:00", end: "12:00", title: "受付停止", tone: "neutral" },
+                                {
+                                    id: 1,
+                                    columnId: 1,
+                                    start: "10:00",
+                                    end: "11:30",
+                                    title: "空き2／3",
+                                    tone: "success",
+                                },
+                                {
+                                    id: 2,
+                                    columnId: 1,
+                                    start: "12:30",
+                                    end: "13:00",
+                                    title: "満席",
+                                    tone: "danger",
+                                    locked: true,
+                                    lockedReason: "予約が入っている枠は移動できません",
+                                },
+                                {
+                                    id: 3,
+                                    columnId: 2,
+                                    start: "11:00",
+                                    end: "12:00",
+                                    title: "受付停止",
+                                    tone: "neutral",
+                                },
                             ]}
                             onMove={() => {}}
                             onCreate={() => {}}
@@ -236,51 +315,80 @@ export const ComponentCatalog = () => {
                         />
                     </div>
                     <div>
-                        <p className="text-xs font-mono text-gray-500 dark:text-gray-400 mb-2">Tabs</p>
+                        <p className="text-xs font-mono text-gray-500 dark:text-gray-400 mb-2">
+                            Tabs
+                        </p>
                         <Tabs
                             tabs={[
-                                { id: "a", label: "予約情報", content: <p className="text-sm text-gray-700 dark:text-gray-200 pt-3">予約情報の中身</p> },
-                                { id: "b", label: "採寸結果", content: <p className="text-sm text-gray-700 dark:text-gray-200 pt-3">採寸結果の中身</p> },
+                                {
+                                    id: "a",
+                                    label: "予約情報",
+                                    content: <p>予約情報の中身</p>,
+                                },
+                                {
+                                    id: "b",
+                                    label: "採寸結果",
+                                    content: <p>採寸結果の中身</p>,
+                                },
                             ]}
                         />
                     </div>
                 </Section>
 
                 <Section title="feedback" note="状態や結果を伝える部品">
-                    <Alert type="info" message="情報メッセージです。" />
-                    <Alert type="success" message="保存しました。" />
-                    <Alert type="warning" message="空き枠が残りわずかです。" />
-                    <Alert type="error" message="予約の作成に失敗しました。" />
+                    <Alert tone="info" message="情報メッセージです。" />
+                    <Alert tone="success" message="保存しました。" />
+                    <Alert tone="warning" message="空き枠が残りわずかです。" />
+                    <Alert tone="danger" message="予約の作成に失敗しました。" />
                     <Row label="Spinner">
                         <Spinner size="sm" />
                         <Spinner size="md" />
                         <Spinner size="lg" />
                     </Row>
                     {toastOpen && (
-                        <Toast message="Toast の表示例" type="success" onClose={() => setToastOpen(false)} duration={0} />
+                        <Toast
+                            message="Toast の表示例"
+                            type="success"
+                            onClose={() => setToastOpen(false)}
+                            duration={0}
+                        />
                     )}
                 </Section>
 
                 <Section title="navigation" note="移動と現在位置を示す部品">
-                    <Breadcrumb items={[{ label: "ホーム", href: "/" }, { label: "スタッフ", href: "/staff" }, { label: "予約一覧", current: true }]} />
+                    <Breadcrumb
+                        items={[
+                            { label: "ホーム", href: "/" },
+                            { label: "スタッフ", href: "/staff" },
+                            { label: "予約一覧", current: true },
+                        ]}
+                    />
                     <Pagination currentPage={page} totalPages={8} onPageChange={setPage} />
                 </Section>
 
-                <Section title="overlays" note="重ねて表示する部品。開いた状態で背景と文字色を確認する">
+                <Section
+                    title="overlays"
+                    note="重ねて表示する部品。開いた状態で背景と文字色を確認する"
+                >
                     <Banner message="お知らせ用のバナーです。" />
                     <Row label="Tooltip">
                         <Tooltip content="ツールチップの中身">
-                            <Button label="ホバーして確認" variant="outline" />
+                            <Button label="ホバーして確認" variant="outlined" />
                         </Tooltip>
                     </Row>
                     <Row label="Modal / Drawer / Loading">
                         <Button label="Modal を開く" onClick={() => setModalOpen(true)} />
-                        <Button label="Drawer を開く" variant="secondary" onClick={() => setDrawerOpen(true)} />
+                        <Button
+                            label="Drawer を開く"
+                            tone="neutral"
+                            variant="outlined"
+                            onClick={() => setDrawerOpen(true)}
+                        />
                     </Row>
                     <div className="relative h-32 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
                         <Loading />
                     </div>
-                    <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Modal の見本">
+                    <Modal open={modalOpen} onOpenChange={setModalOpen} title="Modal の見本">
                         <p className="text-sm text-gray-700 dark:text-gray-200">
                             背景・枠線・閉じるボタンがテーマに追従するかを確認する。
                         </p>
@@ -290,7 +398,10 @@ export const ComponentCatalog = () => {
                     </Drawer>
                 </Section>
 
-                <Section title="icons" note="currentColor で親から色を継承するため dark: 指定を持たない">
+                <Section
+                    title="icons"
+                    note="currentColor で親から色を継承するため dark: 指定を持たない"
+                >
                     <Row label="size=md">
                         <ArrowLeftIcon />
                         <ArrowRightIcon />

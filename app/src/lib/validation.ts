@@ -47,9 +47,7 @@ const optionalDecimal = (label: string, min: number, max: number, unit: string) 
 
 /** yyyy-MM-dd 形式 */
 const dateString = (label: string) =>
-    z
-        .string()
-        .regex(/^\d{4}-\d{2}-\d{2}$/, `${label}はYYYY-MM-DD形式で入力してください`)
+    z.string().regex(/^\d{4}-\d{2}-\d{2}$/, `${label}はYYYY-MM-DD形式で入力してください`)
 
 // ---- 店舗（api/schemas/stores.py）----
 
@@ -65,7 +63,9 @@ export const storeSchema = z.object({
         .number()
         .int("対応可能人数は整数で入力してください")
         .min(1, "対応可能人数は1以上で入力してください"),
-    regular_holiday: optionalText(100, "定休日"),
+    business_hours_start: z.string().min(1, "営業開始時間を入力してください"),
+    business_hours_end: z.string().min(1, "営業終了時間を入力してください"),
+    regular_holidays: z.array(z.number().int().min(0).max(6)),
     description: optionalText(500, "店舗説明"),
     is_enabled: z.boolean(),
 })
@@ -146,16 +146,11 @@ const userBaseShape = {
  * 担当が0件だと、ログインできるのに何も参照できないユーザーができてしまう。
  * （バックエンドの api/routers/admin/users.py も同じ検証をしている）
  */
-const requireStores = <T extends { role: string; store_ids: number[] }>(
-    schema: z.ZodType<T>
-) =>
-    schema.refine(
-        (v) => !SCOPED_ROLES.includes(v.role) || v.store_ids.length > 0,
-        {
-            message: "スタッフと閲覧専用ユーザーには担当店舗が必要です",
-            path: ["store_ids"],
-        }
-    )
+const requireStores = <T extends { role: string; store_ids: number[] }>(schema: z.ZodType<T>) =>
+    schema.refine((v) => !SCOPED_ROLES.includes(v.role) || v.store_ids.length > 0, {
+        message: "スタッフと閲覧専用ユーザーには担当店舗が必要です",
+        path: ["store_ids"],
+    })
 
 const passwordRule = z
     .string()
@@ -167,17 +162,15 @@ export const userCreateSchema = requireStores(
     z.object({
         ...userBaseShape,
         password: passwordRule,
-    })
+    }),
 )
 
 /** 更新時は未入力なら変更しない */
 export const userUpdateSchema = requireStores(
     z.object({
         ...userBaseShape,
-        password: passwordRule
-            .optional()
-            .or(z.literal("").transform(() => undefined)),
-    })
+        password: passwordRule.optional().or(z.literal("").transform(() => undefined)),
+    }),
 )
 
 // ---- スケジュール（api/schemas/schedules.py）----
@@ -231,10 +224,7 @@ export function getFirstError(error: z.ZodError): string {
 /**
  * スキーマで検証し、成功なら null、失敗ならエラーメッセージを返す
  */
-export function validate<T>(
-    schema: z.ZodType<T>,
-    value: unknown
-): string | null {
+export function validate<T>(schema: z.ZodType<T>, value: unknown): string | null {
     const result = schema.safeParse(value)
     return result.success ? null : getFirstError(result.error)
 }

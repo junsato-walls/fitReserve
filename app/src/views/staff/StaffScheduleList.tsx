@@ -1,37 +1,58 @@
 "use client"
 
-import { Table } from "@/components/base/display/Table";
+import {
+    createScheduleBlock,
+    deleteScheduleBlock,
+    getScheduleDays,
+    updateSchedule,
+    updateScheduleBlock,
+} from "@/api/Schedule"
+import { Button } from "@/components/base/buttons/Button"
+import { Card } from "@/components/base/display/Card"
+import { Table } from "@/components/base/display/Table"
 import {
     Timetable,
-    type BadgeTone,
     type TimetableItem,
     type TimetableRange,
-} from "@/components/base/display/Timetable";
-import { Select } from "@/components/base/forms/Select";
-import { Modal } from "@/components/base/overlays/Modal";
-import { scheduleSchema, validate } from "@/lib/validation"
-import type { StorePublic } from "@/types/reservation"
-import { getCurrentUser } from "@/api/Auth"
-import { getStores } from "@/api/Reservation"
-import {
-    createSchedule,
-    deleteSchedule,
-    getSchedules,
-    updateSchedule,
-} from "@/api/Schedule"
-import { Alert } from "@/components/base/feedback/Alert";
-import { Button } from "@/components/base/buttons/Button";
-import { Card } from "@/components/base/display/Card";
-import { Input } from "@/components/base/forms/Input";
-import type { Schedule } from "@/types/schedule"
+} from "@/components/base/display/Timetable"
+import { Alert } from "@/components/base/feedback/Alert"
+import { Checkbox } from "@/components/base/forms/Checkbox"
+import { Input } from "@/components/base/forms/Input"
+import { Modal } from "@/components/base/overlays/Modal"
+import type { Tone } from "@/components/base/tokens"
+import { toTimeInput } from "@/lib/weekday"
+import type { ScheduleBlock, ScheduleDay, ScheduleReservation } from "@/types/schedule"
+import { useRouter } from "next/navigation"
 import { useCallback, useEffect, useMemo, useState } from "react"
 
-/** Select は空文字のvalueを許可しないため、「すべて」を表す値を用意する */
-const ALL_FILTER = "all"
+/**
+ * タイムテーブル上でidの種類を分けるためのオフセット
+ *
+ * タイムテーブルは1つのid空間しか持てないが、予約と枠止めは別のテーブルの行で
+ * idが衝突しうる。種類ごとに範囲をずらして混ざらないようにする。
+ */
+const BLOCK_ID_OFFSET = 1_000_000
+const RESERVATION_ID_OFFSET = 2_000_000
 
-/** 予約が入っている枠を動かすと、予約だけが元の日時に取り残されるため禁止する */
-const LOCKED_REASON =
-    "予約が入っている枠は移動できません。日時を変える場合は予約側で変更してください"
+/** 予約ステータスの表示（予約一覧と同じ語彙にそろえる） */
+const STATUS_LABELS: Record<ScheduleReservation["status"], string> = {
+    pending: "未確認",
+    confirmed: "確定",
+    completed: "完了",
+    cancelled: "取消",
+}
+
+/** ステータスごとの色。取消はAPIから返らないが型のために持つ */
+const STATUS_TONES: Record<ScheduleReservation["status"], Tone> = {
+    pending: "warning",
+    confirmed: "info",
+    completed: "success",
+    cancelled: "neutral",
+}
+
+/** 予約はこの画面からは動かせない。日時の変更は予約詳細で行う */
+const RESERVATION_LOCKED_REASON =
+    "予約はこの画面からは移動できません。日時を変える場合は予約詳細から変更してください"
 
 /** JSTの今日をYYYY-MM-DDで返す */
 function todayInJst(): string {
@@ -53,610 +74,568 @@ function formatDateLabel(date: string): string {
     return `${date}（${weekday}）`
 }
 
+/** "HH:MM:SS" を時（整数）にする。切り上げ指定で終了時刻に使う */
+function toHour(time: string, roundUp = false): number {
+    const [hour, minute] = time.split(":").map(Number)
+    return roundUp && minute > 0 ? hour + 1 : hour
+}
+
 export const StaffScheduleList = () => {
+    const router = useRouter()
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
     const [success, setSuccess] = useState<string | null>(null)
-    const [schedules, setSchedules] = useState<Schedule[]>([])
-    const [stores, setStores] = useState<StorePublic[]>([])
-    const [storeMap, setStoreMap] = useState<{ [key: number]: string }>({})
 
-    // 表示形式。タイムテーブルは1日分、一覧は期間で絞り込む
+    const [days, setDays] = useState<ScheduleDay[]>([])
+    const [targetDate, setTargetDate] = useState<string>(todayInJst())
     const [viewMode, setViewMode] = useState<"timetable" | "list">("timetable")
-    const [timetableDate, setTimetableDate] = useState<string>(todayInJst())
-    const [daySchedules, setDaySchedules] = useState<Schedule[]>([])
-    const [dayLoading, setDayLoading] = useState(false)
-    // 担当店舗。null は全店舗（admin以上）
-    const [myStoreIds, setMyStoreIds] = useState<number[] | null>(null)
 
-    // フィルター
-    const [storeFilter, setStoreFilter] = useState<string>(ALL_FILTER)
-    const [dateFromFilter, setDateFromFilter] = useState<string>("")
-    const [dateToFilter, setDateToFilter] = useState<string>("")
-    const [availableFilter, setAvailableFilter] = useState<string>(ALL_FILTER)
-
-    // フォーム
-    const [isDialogOpen, setIsDialogOpen] = useState(false)
-    const [editingSchedule, setEditingSchedule] = useState<Schedule | null>(null)
-    const [deleteTarget, setDeleteTarget] = useState<Schedule | null>(null)
-
-    const [formData, setFormData] = useState({
-        store_id: "",
-        schedule_date: "",
+    // その日の受付設定を編集する
+    const [editingDay, setEditingDay] = useState<ScheduleDay | null>(null)
+    const [dayForm, setDayForm] = useState({
+        capacity: "1",
+        slot_minutes: "30",
         start_time: "",
         end_time: "",
-        capacity: "1",
+        break_start: "",
+        break_end: "",
         is_available: true,
         memo: "",
     })
 
-    useEffect(() => {
-        fetchData()
-        // 初期表示時のみ実行する（以降は検索ボタンから明示的に再取得する）
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [])
+    // 枠止めを作る・編集する
+    const [blockRange, setBlockRange] = useState<TimetableRange | null>(null)
+    const [blockTitle, setBlockTitle] = useState("")
+    const [editingBlock, setEditingBlock] = useState<ScheduleBlock | null>(null)
 
-    const fetchData = async () => {
+    const fetchDays = useCallback(async (date: string) => {
         setLoading(true)
         setError(null)
 
-        // 店舗リストとスケジュール一覧は互いに依存しないため並列に取得する。
-        // ローディング表示は fetchData 側でまとめて管理する。
-        const [storesResult] = await Promise.all([
-            getStores(),
-            fetchSchedules({ manageLoading: false }),
-        ])
-
-        if (storesResult.success && storesResult.data) {
-            setStores(storesResult.data)
-            const map: { [key: number]: string } = {}
-            storesResult.data.forEach((store) => {
-                map[store.id] = store.name
-            })
-            setStoreMap(map)
-        }
-
-        // タイムテーブルの列は担当店舗に絞る（admin以上はnull＝全店舗）
-        const user = await getCurrentUser()
-        setMyStoreIds(user?.store_ids ?? null)
-
+        const result = await getScheduleDays({ date_from: date })
         setLoading(false)
-    }
-
-    const fetchSchedules = async ({ manageLoading = true } = {}) => {
-        if (manageLoading) setLoading(true)
-
-        const params: Record<string, string | number | boolean> = {}
-        if (storeFilter !== ALL_FILTER) params.store_id = parseInt(storeFilter)
-        if (dateFromFilter) params.date_from = dateFromFilter
-        if (dateToFilter) params.date_to = dateToFilter
-        if (availableFilter !== ALL_FILTER) params.is_available = availableFilter === "true"
-
-        const result = await getSchedules(params)
-        if (manageLoading) setLoading(false)
 
         if (result.success && result.data) {
-            setSchedules(result.data)
+            setDays(result.data)
         } else {
-            setError(result.error || "スケジュール一覧の取得に失敗しました")
-        }
-    }
-
-    /** タイムテーブル用に1日分だけ取得する（一覧の絞り込みとは独立させる） */
-    const fetchDaySchedules = useCallback(async (date: string) => {
-        setDayLoading(true)
-        // 1日分でも「店舗数 × 枠数」になるため、既定の100件では足りない。
-        // バックエンドの上限（MAX_LIMIT）まで引く
-        const result = await getSchedules({ date_from: date, date_to: date, limit: 500 })
-        setDayLoading(false)
-
-        if (result.success && result.data) {
-            setDaySchedules(result.data)
-        } else {
-            setError(result.error || "スケジュールの取得に失敗しました")
+            setError(result.error || "タイムテーブルの取得に失敗しました")
         }
     }, [])
 
     useEffect(() => {
-        if (viewMode === "timetable") fetchDaySchedules(timetableDate)
-    }, [viewMode, timetableDate, fetchDaySchedules])
+        fetchDays(targetDate)
+    }, [targetDate, fetchDays])
 
-    /** タイムテーブルの列。担当店舗のみを並べる */
-    const timetableColumns = useMemo(() => {
-        const visible = myStoreIds
-            ? stores.filter((store) => myStoreIds.includes(store.id))
-            : stores
-        return visible.map((store) => ({
-            id: store.id,
-            label: store.name,
-            description: `${daySchedules.filter((s) => s.store_id === store.id).length}件`,
-        }))
-    }, [stores, myStoreIds, daySchedules])
-
-    const timetableItems = useMemo<TimetableItem[]>(
+    /** 列は店舗ごと。受付しない日はその旨を見出しに出す */
+    const columns = useMemo(
         () =>
-            daySchedules.map((schedule) => {
-                const remaining = schedule.capacity - schedule.reserved_count
-                let tone: BadgeTone = "success"
-                let label = `空き${remaining}／${schedule.capacity}`
-
-                if (!schedule.is_available) {
-                    tone = "neutral"
-                    label = "受付停止"
-                } else if (remaining <= 0) {
-                    tone = "danger"
-                    label = "満席"
-                } else if (remaining <= 2) {
-                    tone = "warning"
-                }
-
-                return {
-                    id: schedule.id,
-                    columnId: schedule.store_id,
-                    start: schedule.start_time,
-                    end: schedule.end_time,
-                    title: label,
-                    subtitle: schedule.memo ?? undefined,
-                    tone,
-                    // 予約済みの枠は動かせない
-                    locked: schedule.reserved_count > 0,
-                    lockedReason: LOCKED_REASON,
-                }
-            }),
-        [daySchedules]
+            days.map((day) => ({
+                id: day.store_id,
+                label: day.store_name,
+                description: day.is_holiday
+                    ? "定休日"
+                    : !day.is_available
+                      ? "受付停止"
+                      : `予約${day.reservations.length}件 / 同時${day.capacity}人`,
+            })),
+        [days],
     )
 
     /**
-     * ドラッグでの移動を確定する
+     * 表示する時間帯
      *
-     * 先に画面を動かしてからAPIを呼ぶ。失敗したら元の位置へ戻す。
-     * 保存を待ってから描画すると、掴んだ枠が一瞬元に戻って見えるため。
+     * 店舗ごとに営業時間が違うため、その日に並ぶ店舗の営業時間をすべて含む幅にする。
      */
-    const handleMove = async (scheduleId: number, next: TimetableRange) => {
-        const target = daySchedules.find((schedule) => schedule.id === scheduleId)
-        if (!target) return
+    const [startHour, endHour] = useMemo(() => {
+        const open = days.map((day) => toHour(day.start_time))
+        const close = days.map((day) => toHour(day.end_time, true))
+        if (open.length === 0) return [9, 21]
+        return [Math.min(...open), Math.max(...close)]
+    }, [days])
+
+    /** タイムテーブルの1マスは、その日で最も細かい刻みに合わせる */
+    const slotMinutes = useMemo(() => {
+        const values = days.filter((day) => day.is_available).map((day) => day.slot_minutes)
+        return values.length > 0 ? Math.min(...values) : 30
+    }, [days])
+
+    /**
+     * タイムテーブルに置くのは予約と枠止め
+     *
+     * 空いている枠はブロックにしない。営業時間から等間隔に作られるため、
+     * 1つずつ描くと1日ぶんが敷き詰められて予約が埋もれる。
+     * 枠の区切りは目盛り線で分かる。
+     */
+    const items = useMemo<TimetableItem[]>(
+        () =>
+            days.flatMap((day) => [
+                ...day.reservations.map((reservation) => ({
+                    id: reservation.id + RESERVATION_ID_OFFSET,
+                    columnId: day.store_id,
+                    start: reservation.start_time,
+                    end: reservation.end_time,
+                    title: reservation.customer_name,
+                    subtitle: reservation.school_name ?? STATUS_LABELS[reservation.status],
+                    tone: STATUS_TONES[reservation.status],
+                    locked: true,
+                    lockedReason: RESERVATION_LOCKED_REASON,
+                })),
+                ...day.blocks.map((block) => ({
+                    id: block.id + BLOCK_ID_OFFSET,
+                    columnId: day.store_id,
+                    start: block.start_time,
+                    end: block.end_time,
+                    title: block.title,
+                    subtitle: block.memo ?? undefined,
+                    tone: "neutral" as const,
+                })),
+            ]),
+        [days],
+    )
+
+    /** タイムテーブル上のidから枠止めを引く */
+    const findBlock = useCallback(
+        (itemId: number): ScheduleBlock | null => {
+            if (itemId < BLOCK_ID_OFFSET || itemId >= RESERVATION_ID_OFFSET) return null
+            const blockId = itemId - BLOCK_ID_OFFSET
+            for (const day of days) {
+                const found = day.blocks.find((block) => block.id === blockId)
+                if (found) return found
+            }
+            return null
+        },
+        [days],
+    )
+
+    /** 枠止めのドラッグ移動 */
+    const handleMove = async (itemId: number, next: TimetableRange) => {
+        const block = findBlock(itemId)
+        if (!block) return
 
         setError(null)
         setSuccess(null)
 
-        const moved: Schedule = {
-            ...target,
+        const result = await updateScheduleBlock(block.id, {
             store_id: next.columnId,
-            start_time: next.start,
-            end_time: next.end,
-        }
-        setDaySchedules((prev) =>
-            prev.map((schedule) => (schedule.id === scheduleId ? moved : schedule))
-        )
-
-        const result = await updateSchedule(scheduleId, {
-            store_id: next.columnId,
-            schedule_date: timetableDate,
+            block_date: targetDate,
             start_time: next.start,
             end_time: next.end,
         })
 
         if (result.success) {
-            setSuccess("スケジュールを移動しました")
-            fetchDaySchedules(timetableDate)
+            setSuccess("枠止めを移動しました")
         } else {
-            // 元の位置へ戻す
-            setDaySchedules((prev) =>
-                prev.map((schedule) => (schedule.id === scheduleId ? target : schedule))
-            )
-            setError(result.error || "スケジュールの移動に失敗しました")
+            setError(result.error || "枠止めの移動に失敗しました")
         }
+        fetchDays(targetDate)
     }
 
-    /** 空き時間のドラッグから新規作成ダイアログを開く */
+    /** 空き時間のドラッグから枠止めの作成ダイアログを開く */
     const handleCreateFromRange = (range: TimetableRange) => {
-        setEditingSchedule(null)
-        setFormData({
-            store_id: range.columnId.toString(),
-            schedule_date: timetableDate,
-            start_time: range.start.substring(0, 5),
-            end_time: range.end.substring(0, 5),
-            capacity: "1",
-            is_available: true,
-            memo: "",
-        })
-        setIsDialogOpen(true)
+        setBlockRange(range)
+        setBlockTitle("")
+        setEditingBlock(null)
     }
 
-    const handleSelectItem = (scheduleId: number) => {
-        const target = daySchedules.find((schedule) => schedule.id === scheduleId)
-        if (target) handleEdit(target)
-    }
-
-    const handleSearch = () => {
-        fetchSchedules()
-    }
-
-    const handleReset = () => {
-        setStoreFilter(ALL_FILTER)
-        setDateFromFilter("")
-        setDateToFilter("")
-        setAvailableFilter(ALL_FILTER)
-        setTimeout(() => fetchSchedules(), 100)
-    }
-
-    const handleCreate = () => {
-        setEditingSchedule(null)
-        setFormData({
-            store_id: "",
-            schedule_date: "",
-            start_time: "",
-            end_time: "",
-            capacity: "1",
-            is_available: true,
-            memo: "",
-        })
-        setIsDialogOpen(true)
-    }
-
-    const handleEdit = (schedule: Schedule) => {
-        setEditingSchedule(schedule)
-        setFormData({
-            store_id: schedule.store_id.toString(),
-            schedule_date: schedule.schedule_date,
-            start_time: schedule.start_time.substring(0, 5),
-            end_time: schedule.end_time.substring(0, 5),
-            capacity: schedule.capacity.toString(),
-            is_available: schedule.is_available,
-            memo: schedule.memo || "",
-        })
-        setIsDialogOpen(true)
-    }
-
-    const handleSubmit = async () => {
-        setError(null)
-        setSuccess(null)
-
-        // created_by / updated_by はServer Action側でログインユーザーから補完される
-        const data = {
-            store_id: parseInt(formData.store_id),
-            schedule_date: formData.schedule_date,
-            start_time: formData.start_time + ":00",
-            end_time: formData.end_time + ":00",
-            capacity: parseInt(formData.capacity),
-            is_available: formData.is_available,
-            memo: formData.memo || undefined,
-        }
-
-        const validationError = validate(scheduleSchema, data)
-        if (validationError) {
-            setError(validationError)
+    const handleSelectItem = (itemId: number) => {
+        // 予約は詳細画面へ送る。ここで編集できるのは枠止めだけ
+        if (itemId >= RESERVATION_ID_OFFSET) {
+            router.push(`/staff/reservations/${itemId - RESERVATION_ID_OFFSET}`)
             return
         }
 
-        let result
-        if (editingSchedule) {
-            result = await updateSchedule(editingSchedule.id, data)
-        } else {
-            result = await createSchedule(data)
-        }
-
-        if (result.success) {
-            setSuccess(
-                editingSchedule
-                    ? "スケジュールを更新しました"
-                    : "スケジュールを作成しました"
-            )
-            setIsDialogOpen(false)
-            if (viewMode === "timetable") {
-                fetchDaySchedules(timetableDate)
-            } else {
-                fetchSchedules()
-            }
-        } else {
-            setError(result.error || "スケジュールの保存に失敗しました")
+        const block = findBlock(itemId)
+        if (block) {
+            setEditingBlock(block)
+            setBlockTitle(block.title)
+            setBlockRange(null)
         }
     }
 
-    const handleDelete = async () => {
-        if (!deleteTarget) return
+    const handleSubmitBlock = async () => {
+        setError(null)
+        setSuccess(null)
+
+        if (editingBlock) {
+            const result = await updateScheduleBlock(editingBlock.id, { title: blockTitle })
+            if (!result.success) {
+                setError(result.error || "枠止めの更新に失敗しました")
+                return
+            }
+            setSuccess("枠止めを更新しました")
+        } else if (blockRange) {
+            const result = await createScheduleBlock({
+                store_id: blockRange.columnId,
+                block_date: targetDate,
+                start_time: blockRange.start,
+                end_time: blockRange.end,
+                title: blockTitle || "枠止め",
+            })
+            if (!result.success) {
+                setError(result.error || "枠止めの作成に失敗しました")
+                return
+            }
+            setSuccess("枠止めを追加しました")
+        }
+
+        setBlockRange(null)
+        setEditingBlock(null)
+        fetchDays(targetDate)
+    }
+
+    const handleDeleteBlock = async () => {
+        if (!editingBlock) return
+
+        setError(null)
+        const result = await deleteScheduleBlock(editingBlock.id)
+        if (result.success) {
+            setSuccess("枠止めを削除しました")
+        } else {
+            setError(result.error || "枠止めの削除に失敗しました")
+        }
+
+        setEditingBlock(null)
+        fetchDays(targetDate)
+    }
+
+    const handleEditDay = (day: ScheduleDay) => {
+        setEditingDay(day)
+        setDayForm({
+            capacity: String(day.capacity),
+            slot_minutes: String(day.slot_minutes),
+            start_time: toTimeInput(day.start_time),
+            end_time: toTimeInput(day.end_time),
+            break_start: toTimeInput(day.break_start),
+            break_end: toTimeInput(day.break_end),
+            is_available: day.is_available,
+            memo: day.memo ?? "",
+        })
+    }
+
+    const handleSubmitDay = async () => {
+        if (!editingDay?.schedule_id) return
 
         setError(null)
         setSuccess(null)
 
-        const result = await deleteSchedule(deleteTarget.id)
+        const result = await updateSchedule(editingDay.schedule_id, {
+            capacity: parseInt(dayForm.capacity),
+            slot_minutes: parseInt(dayForm.slot_minutes),
+            start_time: dayForm.start_time ? `${dayForm.start_time}:00` : null,
+            end_time: dayForm.end_time ? `${dayForm.end_time}:00` : null,
+            break_start: dayForm.break_start ? `${dayForm.break_start}:00` : null,
+            break_end: dayForm.break_end ? `${dayForm.break_end}:00` : null,
+            is_available: dayForm.is_available,
+            memo: dayForm.memo || null,
+        })
 
-        if (result.success) {
-            setSuccess("スケジュールを削除しました")
-            setDeleteTarget(null)
-            if (viewMode === "timetable") {
-                fetchDaySchedules(timetableDate)
-            } else {
-                fetchSchedules()
-            }
-        } else {
-            setError(result.error || "スケジュールの削除に失敗しました")
-            setDeleteTarget(null)
+        if (!result.success) {
+            setError(result.error || "受付設定の更新に失敗しました")
+            return
         }
-    }
 
-    const getAvailableCount = (schedule: Schedule) => {
-        return schedule.capacity - schedule.reserved_count
+        setSuccess("受付設定を更新しました")
+        setEditingDay(null)
+        fetchDays(targetDate)
     }
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-center">
-                <h1 className="text-2xl font-bold">スケジュール管理</h1>
-                <Button onClick={handleCreate} label="新規作成" />
+            <div className="flex flex-wrap items-end justify-between gap-4">
+                <div>
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                        スケジュール管理
+                    </h1>
+                    <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
+                        予約枠は店舗の営業時間から自動で作られます。
+                        同時予約数・休憩・受付の可否は日ごとに変更できます。
+                    </p>
+                </div>
+
+                <div className="flex flex-wrap items-end gap-2">
+                    <Button
+                        tone="neutral"
+                        variant="outlined"
+                        size="sm"
+                        onClick={() => setTargetDate(shiftDate(targetDate, -1))}
+                        label="前の日"
+                    />
+                    <Button
+                        tone="neutral"
+                        variant="outlined"
+                        size="sm"
+                        onClick={() => setTargetDate(todayInJst())}
+                        label="今日"
+                    />
+                    <Button
+                        tone="neutral"
+                        variant="outlined"
+                        size="sm"
+                        onClick={() => setTargetDate(shiftDate(targetDate, 1))}
+                        label="次の日"
+                    />
+                    <Input
+                        label="日付"
+                        type="date"
+                        value={targetDate}
+                        onChange={(e) => setTargetDate(e.target.value)}
+                    />
+                </div>
             </div>
 
-            {success && (
-                <Alert type="success" message={success} />
-            )}
-
-            {error && (
-                <Alert type="error" message={error} />
-            )}
+            {success && <Alert tone="success" message={success} />}
+            {error && <Alert tone="danger" message={error} />}
 
             <div className="flex gap-2">
                 <Button
-                    variant={viewMode === "timetable" ? "primary" : "outline"}
+                    selected={viewMode === "timetable"}
                     onClick={() => setViewMode("timetable")}
                     label="タイムテーブル"
                 />
                 <Button
-                    variant={viewMode === "list" ? "primary" : "outline"}
+                    selected={viewMode === "list"}
                     onClick={() => setViewMode("list")}
                     label="一覧"
                 />
             </div>
 
             {viewMode === "timetable" ? (
-                <Card title={formatDateLabel(timetableDate)}>
-                    <div className="flex flex-wrap items-end gap-2 mb-4">
-                        <Button
-                            variant="outline"
-                            onClick={() => setTimetableDate(shiftDate(timetableDate, -1))}
-                            label="前の日"
-                        />
-                        <Button
-                            variant="outline"
-                            onClick={() => setTimetableDate(todayInJst())}
-                            label="今日"
-                        />
-                        <Button
-                            variant="outline"
-                            onClick={() => setTimetableDate(shiftDate(timetableDate, 1))}
-                            label="次の日"
-                        />
-                        <Input
-                            label="日付"
-                            type="date"
-                            value={timetableDate}
-                            onChange={(e) => setTimetableDate(e.target.value)}
-                        />
-                    </div>
-
+                <Card title={formatDateLabel(targetDate)}>
+                    <p className="mb-3 text-sm text-gray-600 dark:text-gray-300">
+                        色付きのブロックが予約です（クリックで詳細へ）。
+                        空いているところをドラッグすると予約以外の予定（枠止め）を追加でき、
+                        その時間は予約を受け付けなくなります。
+                        枠止めはドラッグで移動、クリックで編集できます。
+                    </p>
                     <Timetable
-                        columns={timetableColumns}
-                        items={timetableItems}
-                        loading={dayLoading}
-                        emptyMessage="この日のスケジュールはありません"
+                        columns={columns}
+                        items={items}
+                        startHour={startHour}
+                        endHour={endHour}
+                        slotMinutes={slotMinutes}
+                        loading={loading}
                         onMove={handleMove}
                         onCreate={handleCreateFromRange}
                         onSelect={handleSelectItem}
+                        emptyMessage="この日の予約・枠止めはありません"
                     />
                 </Card>
             ) : (
-            <>
-            <Card title="検索フィルター">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <Select
-                        label="店舗"
-                        fullWidth
-                        placeholder="すべて"
-                        value={storeFilter}
-                        onChange={setStoreFilter}
-                        options={[{ value: ALL_FILTER, label: "すべて" }, ...stores.map((store) => ({ value: store.id.toString(), label: store.name }))]}
-                    />
-
-                    <Input
-                        label="日付（開始）"
-                        fullWidth
-                        type="date"
-                        value={dateFromFilter}
-                        onChange={(e) => setDateFromFilter(e.target.value)}
-                    />
-
-                    <Input
-                        label="日付（終了）"
-                        fullWidth
-                        type="date"
-                        value={dateToFilter}
-                        onChange={(e) => setDateToFilter(e.target.value)}
-                    />
-
-                    <Select
-                        label="予約可否"
-                        fullWidth
-                        placeholder="すべて"
-                        value={availableFilter}
-                        onChange={setAvailableFilter}
-                        options={[{ value: ALL_FILTER, label: "すべて" }, { value: "true", label: "予約可能" }, { value: "false", label: "予約不可" }]}
-                    />
-                </div>
-
-                <div className="flex gap-2 mt-4">
-                    <Button onClick={handleSearch} disabled={loading} label="検索" loadingLabel="検索中..." isLoading={loading} />
-                    <Button variant="outline" onClick={handleReset} label="リセット" />
-                </div>
-            </Card>
-
-            <Card title={`スケジュール一覧（${schedules.length}件）`}>
-                <Table
-                    data={schedules}
-                    loading={loading}
-                    emptyMessage="スケジュールが見つかりません"
-                    getRowId={(schedule) => schedule.id}
-                    columns={[
-                        { id: "schedule_date", header: "日付", accessor: "schedule_date" },
-                        {
-                            id: "time",
-                            header: "時間帯",
-                            accessor: "start_time",
-                            format: (value, row) =>
-                                `${String(value).substring(0, 5)} - ${row.end_time.substring(0, 5)}`,
-                        },
-                        {
-                            id: "store",
-                            header: "店舗",
-                            accessor: "store_id",
-                            format: (value) => storeMap[value as number] ?? "-",
-                        },
-                        { id: "capacity", header: "受付可能数", accessor: "capacity" },
-                        { id: "reserved_count", header: "予約済", accessor: "reserved_count" },
-                        {
-                            id: "available",
-                            header: "残り",
-                            accessor: "capacity",
-                            type: "badge",
-                            format: (_value, row) => String(getAvailableCount(row)),
-                            badgeTone: (_value, row) => {
-                                const remaining = getAvailableCount(row)
-                                if (remaining <= 0) return "danger"
-                                if (remaining <= 2) return "warning"
-                                return "success"
+                <Card title={`${formatDateLabel(targetDate)} の受付設定`}>
+                    <Table
+                        data={days}
+                        loading={loading}
+                        emptyMessage="受付設定がありません"
+                        getRowId={(day) => day.store_id}
+                        columns={[
+                            { id: "store_name", header: "店舗", accessor: "store_name" },
+                            {
+                                id: "hours",
+                                header: "受付時間",
+                                accessor: "start_time",
+                                format: (value, row) =>
+                                    `${toTimeInput(String(value))}〜${toTimeInput(row.end_time)}`,
                             },
-                        },
-                        {
-                            id: "is_available",
-                            header: "状態",
-                            accessor: "is_available",
-                            type: "boolean",
-                            booleanLabels: { true: "予約可能", false: "予約不可" },
-                        },
-                        {
-                            id: "memo",
-                            header: "備考",
-                            accessor: "memo",
-                            format: (value) => (value ? String(value).substring(0, 20) : ""),
-                        },
-                    ]}
-                    actions={[
-                        { id: "edit", label: "編集", onClick: (schedule) => handleEdit(schedule) },
-                        {
-                            id: "delete",
-                            label: "削除",
-                            destructive: true,
-                            // 予約が入っている枠は削除できない
-                            disabled: (schedule) => schedule.reserved_count > 0,
-                            onClick: (schedule) => setDeleteTarget(schedule),
-                        },
-                    ]}
-                />
-            </Card>
-            </>
+                            {
+                                id: "break",
+                                header: "休憩",
+                                accessor: "break_start",
+                                format: (value, row) =>
+                                    value
+                                        ? `${toTimeInput(String(value))}〜${toTimeInput(row.break_end)}`
+                                        : "なし",
+                            },
+                            { id: "capacity", header: "同時予約数", accessor: "capacity" },
+                            {
+                                id: "slot_minutes",
+                                header: "枠の刻み",
+                                accessor: "slot_minutes",
+                                format: (value) => `${value}分`,
+                            },
+                            {
+                                id: "slots",
+                                header: "枠数",
+                                accessor: "slots",
+                                format: (value) => `${(value as unknown[]).length}枠`,
+                            },
+                            {
+                                id: "is_available",
+                                header: "受付",
+                                accessor: "is_available",
+                                type: "badge",
+                                format: (value, row) =>
+                                    row.is_holiday ? "定休日" : value ? "受付中" : "受付停止",
+                                badgeTone: (value, row) =>
+                                    row.is_holiday ? "neutral" : value ? "success" : "warning",
+                            },
+                            { id: "memo", header: "備考", accessor: "memo" },
+                        ]}
+                        actions={[
+                            {
+                                id: "edit",
+                                label: "編集",
+                                onClick: (day) => handleEditDay(day),
+                                // 設定が無い日はプロジェクト作成時に作られる
+                                disabled: (day) => day.schedule_id === null,
+                            },
+                        ]}
+                    />
+                </Card>
             )}
 
-            {/* 作成・編集ダイアログ */}
+            {/* 枠止めの追加・編集 */}
             <Modal
-                open={isDialogOpen}
-                onOpenChange={setIsDialogOpen}
-                title={editingSchedule ? "スケジュール編集" : "スケジュール新規作成"}
-                size="md"
+                open={blockRange !== null || editingBlock !== null}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setBlockRange(null)
+                        setEditingBlock(null)
+                    }
+                }}
+                title={editingBlock ? "枠止めを編集" : "枠止めを追加"}
                 actions={[
-                    { id: "cancel", label: "キャンセル", variant: "secondary", onClick: () => setIsDialogOpen(false) },
-                    { id: "submit", label: editingSchedule ? "更新" : "作成", variant: "primary", onClick: handleSubmit },
-                ]}
-            >
-                    <div className="space-y-4">
-                        <Select
-                            label="店舗"
-                            fullWidth
-                            placeholder="店舗を選択"
-                            value={formData.store_id}
-                            onChange={(value) =>
-                                setFormData({ ...formData, store_id: value })
-                            }
-                            options={stores.map((store) => ({ value: store.id.toString(), label: store.name }))}
-                        />
-
-                        <div className="grid grid-cols-2 gap-4">
-                            <Input
-                                label="日付"
-                                fullWidth
-                                type="date"
-                                value={formData.schedule_date}
-                                onChange={(e) =>
-                                    setFormData({ ...formData, schedule_date: e.target.value })
-                                }
-                            />
-                            <Input
-                                label="受付可能数"
-                                fullWidth
-                                type="number"
-                                min="1"
-                                value={formData.capacity}
-                                onChange={(e) =>
-                                    setFormData({ ...formData, capacity: e.target.value })
-                                }
-                            />
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                            <Input
-                                label="開始時刻"
-                                fullWidth
-                                type="time"
-                                value={formData.start_time}
-                                onChange={(e) =>
-                                    setFormData({ ...formData, start_time: e.target.value })
-                                }
-                            />
-                            <Input
-                                label="終了時刻"
-                                fullWidth
-                                type="time"
-                                value={formData.end_time}
-                                onChange={(e) =>
-                                    setFormData({ ...formData, end_time: e.target.value })
-                                }
-                            />
-                        </div>
-
-                        <Select
-                            label="予約可否"
-                            fullWidth
-                            value={formData.is_available.toString()}
-                            onChange={(value) =>
-                                setFormData({ ...formData, is_available: value === "true" })
-                            }
-                            options={[
-                            { value: "true", label: "予約可能" },
-                            { value: "false", label: "予約不可" },
-                            ]}
-                        />
-
-                        <Input
-                            label="備考"
-                            fullWidth
-                            value={formData.memo}
-                            onChange={(e) => setFormData({ ...formData, memo: e.target.value })}
-                            placeholder="備考を入力"
-                        />
-                    </div>
-            </Modal>
-
-            {/* 削除確認ダイアログ */}
-            <Modal
-                open={deleteTarget !== null}
-                onOpenChange={(open) => !open && setDeleteTarget(null)}
-                title="スケジュールを削除しますか？"
-                size="sm"
-                actions={[
-                    { id: "cancel", label: "キャンセル", variant: "secondary", onClick: () => !open && setDeleteTarget(null) },
-                    { id: "action", label: "削除する", variant: "danger", onClick: handleDelete },
+                    ...(editingBlock
+                        ? [
+                              {
+                                  id: "delete",
+                                  label: "削除",
+                                  tone: "danger" as const,
+                                  variant: "outlined" as const,
+                                  onClick: handleDeleteBlock,
+                              },
+                          ]
+                        : []),
+                    {
+                        id: "cancel",
+                        label: "キャンセル",
+                        tone: "neutral" as const,
+                        variant: "outlined" as const,
+                        onClick: () => {
+                            setBlockRange(null)
+                            setEditingBlock(null)
+                        },
+                    },
+                    {
+                        id: "submit",
+                        label: editingBlock ? "更新" : "追加",
+                        tone: "info" as const,
+                        variant: "filled" as const,
+                        onClick: handleSubmitBlock,
+                    },
                 ]}
             >
                 <p className="text-sm text-gray-600 dark:text-gray-300">
-                            この操作は取り消せません。削除後は復元できません。
+                    {editingBlock
+                        ? `${toTimeInput(editingBlock.start_time)}〜${toTimeInput(editingBlock.end_time)}`
+                        : blockRange
+                          ? `${toTimeInput(blockRange.start)}〜${toTimeInput(blockRange.end)}`
+                          : ""}
+                    の予約を受け付けなくします。
                 </p>
+                <Input
+                    label="用件"
+                    fullWidth
+                    required
+                    value={blockTitle}
+                    onChange={(e) => setBlockTitle(e.target.value)}
+                    placeholder="昼休み、棚卸し、研修など"
+                />
+            </Modal>
+
+            {/* その日の受付設定 */}
+            <Modal
+                open={editingDay !== null}
+                onOpenChange={(open) => !open && setEditingDay(null)}
+                title={`${editingDay?.store_name ?? ""} ${formatDateLabel(targetDate)}`}
+                actions={[
+                    {
+                        id: "cancel",
+                        label: "キャンセル",
+                        tone: "neutral" as const,
+                        variant: "outlined" as const,
+                        onClick: () => setEditingDay(null),
+                    },
+                    {
+                        id: "submit",
+                        label: "更新",
+                        tone: "info" as const,
+                        variant: "filled" as const,
+                        onClick: handleSubmitDay,
+                    },
+                ]}
+            >
+                <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                        <Input
+                            label="同時予約数"
+                            type="number"
+                            fullWidth
+                            required
+                            value={dayForm.capacity}
+                            onChange={(e) => setDayForm({ ...dayForm, capacity: e.target.value })}
+                        />
+                        <Input
+                            label="枠の刻み（分）"
+                            type="number"
+                            fullWidth
+                            required
+                            value={dayForm.slot_minutes}
+                            onChange={(e) =>
+                                setDayForm({ ...dayForm, slot_minutes: e.target.value })
+                            }
+                        />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <Input
+                            label="受付開始"
+                            type="time"
+                            fullWidth
+                            value={dayForm.start_time}
+                            onChange={(e) => setDayForm({ ...dayForm, start_time: e.target.value })}
+                        />
+                        <Input
+                            label="受付終了"
+                            type="time"
+                            fullWidth
+                            value={dayForm.end_time}
+                            onChange={(e) => setDayForm({ ...dayForm, end_time: e.target.value })}
+                        />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <Input
+                            label="休憩開始"
+                            type="time"
+                            fullWidth
+                            value={dayForm.break_start}
+                            onChange={(e) =>
+                                setDayForm({ ...dayForm, break_start: e.target.value })
+                            }
+                        />
+                        <Input
+                            label="休憩終了"
+                            type="time"
+                            fullWidth
+                            value={dayForm.break_end}
+                            onChange={(e) => setDayForm({ ...dayForm, break_end: e.target.value })}
+                        />
+                    </div>
+
+                    <Checkbox
+                        label="この日は予約を受け付ける"
+                        checked={dayForm.is_available}
+                        onChange={(e) => setDayForm({ ...dayForm, is_available: e.target.checked })}
+                    />
+
+                    <Input
+                        label="備考"
+                        fullWidth
+                        value={dayForm.memo}
+                        onChange={(e) => setDayForm({ ...dayForm, memo: e.target.value })}
+                        placeholder="臨時休業、増員など"
+                    />
+                </div>
             </Modal>
         </div>
     )

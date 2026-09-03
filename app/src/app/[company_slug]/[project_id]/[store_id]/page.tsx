@@ -31,11 +31,7 @@ export default async function ReservationPage({ params }: ReservationPageProps) 
 
     return (
         <div className="container mx-auto py-8 px-4">
-            <ReservationForm
-                companySlug={company_slug}
-                projectId={projectId}
-                storeId={storeId}
-            />
+            <ReservationForm companySlug={company_slug} projectId={projectId} storeId={storeId} />
         </div>
     )
 }
