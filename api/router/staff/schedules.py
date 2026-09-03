@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 """スケジュール管理API（社内向け・ログイン必須）
 
+スケジュールは「店舗×日」の受付設定。時間枠そのものは持たず、
+受付時間（未設定なら店舗の営業時間）から導出する。
+
 面の既定は readonly。更新系は引数で StaffUser に強めている。
 """
 
@@ -14,9 +17,9 @@ from sqlalchemy.orm import Session
 # ローカル
 from repository.query import schedules as schedules_query
 from schema.schedules import (
-    ScheduleAvailability,
-    ScheduleAvailabilityQuery,
     ScheduleCreate,
+    ScheduleDay,
+    ScheduleDayQuery,
     ScheduleResponse,
     ScheduleSearchQuery,
     ScheduleUpdate,
@@ -34,33 +37,32 @@ def get_schedules(
     query: Annotated[ScheduleSearchQuery, Query()],
     db: Session = Depends(get_db),
 ):
-    """スケジュール一覧取得
+    """受付設定の一覧取得
 
     絞り込みだけで業務ルールが無いため、repositoryを直接呼ぶ。
     担当店舗（actor.store_ids）は絞り込み条件としてそのまま渡す。
     """
-    return schedules_query.search(
-        db, store_ids=actor.store_ids, **query.model_dump()
-    )
+    return schedules_query.search(db, store_ids=actor.store_ids, **query.model_dump())
 
 
-@router.get("/schedules/availability", response_model=List[ScheduleAvailability])
-def get_schedule_availability(
+@router.get("/schedules/days", response_model=List[ScheduleDay])
+def get_schedule_days(
     actor: ReadonlyUser,
-    query: Annotated[ScheduleAvailabilityQuery, Query()],
+    query: Annotated[ScheduleDayQuery, Query()],
     db: Session = Depends(get_db),
 ):
-    """空き状況一覧取得
+    """タイムテーブル（店舗×日）を取得
 
+    予約枠・枠止め・空き数を組み立てて返す。
     パスが /schedules/{schedule_id} と競合するため、この定義は詳細取得より
-    先に置くこと。後ろに置くと availability が schedule_id として解釈される。
+    先に置くこと。後ろに置くと days が schedule_id として解釈される。
     """
-    return schedules_usecase.list_availability(db, actor, query)
+    return schedules_usecase.list_days(db, actor, query)
 
 
 @router.get("/schedules/{schedule_id}", response_model=ScheduleResponse)
 def get_schedule(schedule_id: int, actor: ReadonlyUser, db: Session = Depends(get_db)):
-    """スケジュール詳細取得"""
+    """受付設定の詳細取得"""
     return schedules_usecase.get_schedule(db, actor, schedule_id)
 
 
@@ -70,7 +72,7 @@ def get_schedule(schedule_id: int, actor: ReadonlyUser, db: Session = Depends(ge
 def create_schedule(
     schedule: ScheduleCreate, actor: StaffUser, db: Session = Depends(get_db)
 ):
-    """スケジュール新規作成"""
+    """受付設定の新規作成（1日分）"""
     return schedules_usecase.create_schedule(db, actor, schedule)
 
 
@@ -81,11 +83,11 @@ def update_schedule(
     actor: StaffUser,
     db: Session = Depends(get_db),
 ):
-    """スケジュール更新"""
+    """受付設定の更新（同時予約数・受付時間・休憩など）"""
     return schedules_usecase.update_schedule(db, actor, schedule_id, schedule)
 
 
 @router.delete("/schedules/{schedule_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_schedule(schedule_id: int, actor: StaffUser, db: Session = Depends(get_db)):
-    """スケジュール削除（論理削除）"""
+    """受付設定の削除（論理削除）"""
     schedules_usecase.delete_schedule(db, actor, schedule_id)

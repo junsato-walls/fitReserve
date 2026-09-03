@@ -28,9 +28,33 @@ projects (プロジェクトマスタ)
   │ project_stores (プロジェクト店舗関連) ← stores (店舗マスタ)
   ↓                                        ↓
 reservations (予約テーブル) ←──────────────┘
-  ↓
-schedules (スケジュールテーブル) → stores
+
+stores (店舗マスタ)
+  ↓ store_regular_holidays (店舗定休日)
+  ↓ schedules (スケジュール＝店舗×日の受付設定)
+  ↓ schedule_blocks (枠止め)
 ```
+
+### 予約枠の考え方
+
+**予約枠はテーブルに持たず、計算で作る。**
+
+```
+店舗の営業時間（stores.business_hours_start / end）
+  └ その日の受付時間で上書きできる（schedules.start_time / end_time）
+      └ schedules.slot_minutes で分割 ── ここが予約枠
+          ├ schedules.break_start / break_end に重なる枠を除く（休憩・任意）
+          ├ schedule_blocks に重なる枠を除く（棚卸し・研修など）
+          └ schedules.is_available = FALSE の日は枠なし（定休日・臨時休業）
+```
+
+枠を行として持つと、営業時間や定休日を変えたときに作り直しが必要になり、
+実体とのずれが起きる。導出にすることで設定を1か所に集約している。
+
+導出の実装は `api/usecase/slots.py` にあり、顧客向け・社内向けの両方から使う。
+
+**予約件数も列に持たない。** `reservations` を数える。
+列に持つと、予約の取り消しや日時変更で実体とずれるため。
 
 ---
 
@@ -120,9 +144,12 @@ schedules (スケジュールテーブル) → stores
 | phone | 電話番号 | VARCHAR(20) | YES | NULL | 電話番号 |
 | email | メールアドレス | VARCHAR(100) | YES | NULL | メールアドレス |
 | capacity | 対応可能人数 | INT | NO | 1 | 同時対応可能人数 |
-| business_hours_start | 営業開始時間 | TIME | YES | NULL | 営業開始時間 |
-| business_hours_end | 営業終了時間 | TIME | YES | NULL | 営業終了時間 |
-| regular_holiday | 定休日 | VARCHAR(100) | YES | NULL | 定休日（例: "月曜日,第3火曜日"） |
+| business_hours_start | 営業開始時間 | TIME | NO | '10:00' | 営業開始時間（予約枠の生成範囲） |
+| business_hours_end | 営業終了時間 | TIME | NO | '19:00' | 営業終了時間（予約枠の生成範囲） |
+
+**制約**: `business_hours_start < business_hours_end`
+
+定休日は自由文字列では判定できないため、`store_regular_holidays` に曜日で持つ。
 | description | 店舗説明 | VARCHAR(500) | YES | NULL | 店舗説明 |
 | image_url | 画像URL | VARCHAR(500) | YES | NULL | 店舗画像URL |
 | is_enabled | 有効フラグ | BOOLEAN | NO | TRUE | 有効フラグ |
@@ -134,6 +161,27 @@ schedules (スケジュールテーブル) → stores
 - PRIMARY KEY (id)
 - UNIQUE KEY (store_code)
 - INDEX (is_enabled, deleted_at)
+
+---
+
+### 2-2. 店舗定休日テーブル (store_regular_holidays)
+
+**概要**: 店舗の定休日を曜日で持ちます。
+「水曜日」のような自由文字列ではプログラムで判定できないため、行に分けています。
+
+| カラム名 | 日本語名 | 型 | NULL | デフォルト | 説明 |
+|---------|---------|---|------|-----------|-----|
+| store_id | 店舗ID | INT | NO | - | 店舗ID（外部キー） |
+| weekday | 曜日 | SMALLINT | NO | - | 0=日曜 〜 6=土曜 |
+
+**インデックス**: PRIMARY KEY (store_id, weekday)
+
+**注意**: `weekday` は PostgreSQL の `EXTRACT(DOW)` に合わせた日曜始まり。
+Python の `date.weekday()` は月曜始まりでずれるため、
+比較する前に `system/clock.py` の `to_dow()` で必ず揃えること。
+JavaScript の `Date.getDay()` は同じ並びなのでそのまま使える。
+
+特定の日だけ休む「臨時休業」は `schedules.is_available = FALSE` で表します。
 
 ---
 
@@ -301,18 +349,20 @@ schedules (スケジュールテーブル) → stores
 
 ### 7. スケジュールテーブル (schedules)
 
-**概要**: 店舗ごとの予約可能スケジュールを管理します。
+**概要**: 店舗×日の受付設定を管理します。**時間枠そのものは持ちません**（上記「予約枠の考え方」を参照）。
 
 | カラム名 | 日本語名 | 型 | NULL | デフォルト | 説明 |
 |---------|---------|---|------|-----------|-----|
 | id | ID | INT | NO | AUTO_INCREMENT | 主キー |
 | store_id | 店舗ID | INT | NO | - | 店舗ID（外部キー） |
 | schedule_date | 日付 | DATE | NO | - | スケジュール日 |
-| start_time | 開始時刻 | TIME | NO | - | 開始時刻 |
-| end_time | 終了時刻 | TIME | NO | - | 終了時刻 |
-| capacity | 受付可能数 | INT | NO | 1 | 予約可能枠数 |
-| reserved_count | 予約済数 | INT | NO | 0 | 予約済み件数 |
-| is_available | 予約可能フラグ | BOOLEAN | NO | TRUE | 予約可能フラグ |
+| capacity | 同時予約数 | INT | NO | 1 | その日の1枠あたりの受付可能人数 |
+| slot_minutes | 枠の刻み | INT | NO | 30 | 予約枠の長さ（分）。5〜480 |
+| start_time | 受付開始時刻 | TIME | YES | NULL | NULLなら店舗の営業開始時間 |
+| end_time | 受付終了時刻 | TIME | YES | NULL | NULLなら店舗の営業終了時間 |
+| break_start | 休憩開始時刻 | TIME | YES | NULL | 任意。この間は枠を作らない |
+| break_end | 休憩終了時刻 | TIME | YES | NULL | 任意 |
+| is_available | 予約可能フラグ | BOOLEAN | NO | TRUE | 定休日・臨時休業はFALSE |
 | memo | 備考 | VARCHAR(500) | YES | NULL | 備考（臨時休業など） |
 | created_by | 作成者 | INT | NO | - | 作成者（ユーザーID） |
 | updated_by | 更新者 | INT | NO | - | 更新者（ユーザーID） |
@@ -320,11 +370,50 @@ schedules (スケジュールテーブル) → stores
 | created_at | 作成日時 | DATETIME | NO | CURRENT_TIMESTAMP | 作成日時 |
 | updated_at | 更新日時 | DATETIME | NO | CURRENT_TIMESTAMP | 更新日時 |
 
+**制約**:
+- 受付時間は「両方NULL（＝営業時間に従う）」か「両方指定で start < end」
+- 休憩は「両方NULL」か「両方指定で start < end」
+
 **インデックス**:
 - PRIMARY KEY (id)
-- UNIQUE KEY (store_id, schedule_date, start_time)
+- UNIQUE INDEX (store_id, schedule_date) WHERE deleted_at IS NULL
 - INDEX (schedule_date, is_available)
 - INDEX (deleted_at)
+
+**行の作られ方**: プロジェクト作成時に、受付期間（全学校区分の最も早い開始日〜
+最も遅い終了日）× 対象店舗の各日にまとめて作る。定休日は `is_available = FALSE`。
+**既に設定がある日は上書きしない**（複数プロジェクトの期間が重なるため）。
+
+---
+
+### 7-2. 枠止めテーブル (schedule_blocks)
+
+**概要**: 予約以外の用途で時間を埋めます（棚卸し・研修・来客など）。
+ここに重なる予約枠は受付から外れます。
+毎日決まった休憩は `schedules.break_start / break_end` のほうが手間が少なくて済みます。
+
+| カラム名 | 日本語名 | 型 | NULL | デフォルト | 説明 |
+|---------|---------|---|------|-----------|-----|
+| id | ID | INT | NO | AUTO_INCREMENT | 主キー |
+| store_id | 店舗ID | INT | NO | - | 店舗ID（外部キー） |
+| block_date | 対象日 | DATE | NO | - | 対象日 |
+| start_time | 開始時刻 | TIME | NO | - | 開始時刻 |
+| end_time | 終了時刻 | TIME | NO | - | 終了時刻 |
+| title | 用件 | VARCHAR(100) | NO | - | 昼休み・棚卸しなど |
+| memo | 備考 | VARCHAR(500) | YES | NULL | 備考 |
+| created_by | 作成者 | INT | NO | - | 作成者（ユーザーID） |
+| updated_by | 更新者 | INT | NO | - | 更新者（ユーザーID） |
+| deleted_at | 削除日時 | DATETIME | YES | NULL | 論理削除日時 |
+| created_at | 作成日時 | DATETIME | NO | CURRENT_TIMESTAMP | 作成日時 |
+| updated_at | 更新日時 | DATETIME | NO | CURRENT_TIMESTAMP | 更新日時 |
+
+**制約**: `start_time < end_time`
+
+**インデックス**:
+- PRIMARY KEY (id)
+- INDEX (store_id, block_date) WHERE deleted_at IS NULL
+
+**業務ルール**: 予約が入っている時間には作れない（予約だけが残って実体と食い違うため）。
 
 ---
 
@@ -403,6 +492,16 @@ ALTER TABLE reservations
 ADD CONSTRAINT fk_reservations_updated_by 
 FOREIGN KEY (updated_by) REFERENCES users(id);
 
+-- store_regular_holidays → stores
+ALTER TABLE store_regular_holidays
+ADD CONSTRAINT fk_store_regular_holidays_store_id
+FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE;
+
+-- schedule_blocks → stores
+ALTER TABLE schedule_blocks
+ADD CONSTRAINT fk_schedule_blocks_store_id
+FOREIGN KEY (store_id) REFERENCES stores(id);
+
 -- schedules → stores
 ALTER TABLE schedules
 ADD CONSTRAINT fk_schedules_store_id 
@@ -431,8 +530,11 @@ CREATE INDEX idx_reservations_search
 ON reservations(store_id, reservation_date, status, deleted_at);
 
 -- スケジュール検索の高速化
-CREATE INDEX idx_schedules_availability 
-ON schedules(store_id, schedule_date, is_available, deleted_at);
+CREATE UNIQUE INDEX idx_schedules_day
+ON schedules(store_id, schedule_date) WHERE deleted_at IS NULL;
+
+CREATE INDEX idx_schedule_blocks_store_date
+ON schedule_blocks(store_id, block_date) WHERE deleted_at IS NULL;
 
 -- プロジェクト期間検索の高速化
 CREATE INDEX idx_projects_period 

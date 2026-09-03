@@ -54,6 +54,15 @@ class ProjectCreate(ProjectBase):
     school_divisions: Optional[List[SchoolDivisionPeriod]] = Field(
         None, description="学校区分ごとの予約受付期間"
     )
+    daily_capacity: Optional[int] = Field(
+        None,
+        ge=1,
+        description=(
+            "受付期間内の各日に入れる同時予約数。"
+            "未指定なら店舗ごとの同時対応可能人数を使う。"
+            "既に設定がある日は上書きしない"
+        ),
+    )
 
     model_config = ConfigDict(
         json_schema_extra={
@@ -68,6 +77,7 @@ class ProjectCreate(ProjectBase):
                     "created_by": 1,
                     "updated_by": 1,
                     "store_ids": [1, 2],
+                    "daily_capacity": 3,
                     "school_divisions": [
                         {
                             "school_divisions_id": 2,

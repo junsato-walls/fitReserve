@@ -8,7 +8,7 @@ from typing import Optional
 from sqlalchemy.orm import Session
 
 # ローカル
-from model import ProjectStores, Stores, StoreSchools
+from model import ProjectStores, StoreRegularHolidays, Stores, StoreSchools
 
 
 def find_by_id(db: Session, store_id: int) -> Optional[Stores]:
@@ -120,3 +120,37 @@ def list_project_store_ids(db: Session, project_id: int) -> list[int]:
         .order_by(ProjectStores.store_id)
         .all()
     ]
+
+
+def list_regular_holidays(db: Session, store_id: int) -> list[int]:
+    """定休日の曜日を返す（0=日曜 〜 6=土曜）"""
+    rows = (
+        db.query(StoreRegularHolidays.weekday)
+        .filter(StoreRegularHolidays.store_id == store_id)
+        .order_by(StoreRegularHolidays.weekday)
+        .all()
+    )
+    return [row[0] for row in rows]
+
+
+def map_regular_holidays(
+    db: Session, store_ids: list[int]
+) -> dict[int, list[int]]:
+    """複数店舗の定休日をまとめて返す
+
+    店舗ごとに1回ずつ引くとタイムテーブルでN+1になるため、一度に取る。
+    """
+    if not store_ids:
+        return {}
+
+    rows = (
+        db.query(StoreRegularHolidays.store_id, StoreRegularHolidays.weekday)
+        .filter(StoreRegularHolidays.store_id.in_(store_ids))
+        .order_by(StoreRegularHolidays.store_id, StoreRegularHolidays.weekday)
+        .all()
+    )
+
+    holidays: dict[int, list[int]] = {store_id: [] for store_id in store_ids}
+    for store_id, weekday in rows:
+        holidays[store_id].append(weekday)
+    return holidays

@@ -31,27 +31,45 @@ INSERT INTO school_divisions (name) VALUES
 -- ===========================================
 INSERT INTO stores (
     store_code, name, name_kana, postal_code, address, phone, email,
-    capacity, business_hours_start, business_hours_end, regular_holiday,
+    capacity, business_hours_start, business_hours_end,
     description, is_enabled
 ) VALUES
 ('S001', '渋谷店', 'シブヤテン', '150-0041', '東京都渋谷区神南1-1-1', '03-1234-5678', 'shibuya@fitreserve.example.com',
- 3, '09:00:00', '18:00:00', '水曜日', '渋谷駅から徒歩5分。制服の採寸・販売を行っています。', TRUE),
+ 3, '09:00:00', '18:00:00', '渋谷駅から徒歩5分。制服の採寸・販売を行っています。', TRUE),
 
 ('S002', '新宿店', 'シンジュクテン', '160-0022', '東京都新宿区新宿3-1-1', '03-2345-6789', 'shinjuku@fitreserve.example.com',
- 5, '09:00:00', '19:00:00', '月曜日', '新宿駅東口から徒歩3分。広々とした店内でゆっくり試着いただけます。', TRUE),
+ 5, '09:00:00', '19:00:00', '新宿駅東口から徒歩3分。広々とした店内でゆっくり試着いただけます。', TRUE),
 
 ('S003', '横浜店', 'ヨコハマテン', '220-0011', '神奈川県横浜市西区高島2-1-1', '045-123-4567', 'yokohama@fitreserve.example.com',
- 2, '10:00:00', '18:00:00', '火曜日', '横浜駅西口から徒歩7分。駐車場完備。', TRUE),
+ 2, '10:00:00', '18:00:00', '横浜駅西口から徒歩7分。駐車場完備。', TRUE),
 
 ('S004', '池袋店', 'イケブクロテン', '171-0022', '東京都豊島区南池袋1-1-1', '03-3456-7890', 'ikebukuro@fitreserve.example.com',
- 4, '10:00:00', '19:00:00', '木曜日', '池袋駅東口直結。土日も営業しています。', TRUE),
+ 4, '10:00:00', '19:00:00', '池袋駅東口直結。土日も営業しています。', TRUE),
 
 ('S005', '川崎店', 'カワサキテン', '210-0007', '神奈川県川崎市川崎区駅前本町1-1-1', '044-234-5678', 'kawasaki@fitreserve.example.com',
- 3, '09:00:00', '17:00:00', '水曜日', '川崎駅東口から徒歩4分。学校説明会と連携した採寸会を実施。', TRUE),
+ 3, '09:00:00', '17:00:00', '川崎駅東口から徒歩4分。学校説明会と連携した採寸会を実施。', TRUE),
 
 -- 無効な店舗（一覧から除外されることの確認用）
 ('S006', '町田店（閉店）', 'マチダテン', '194-0013', '東京都町田市原町田1-1-1', '042-345-6789', NULL,
- 2, '10:00:00', '18:00:00', '月曜日', '2024年3月に閉店しました。', FALSE);
+ 2, '10:00:00', '18:00:00', '2024年3月に閉店しました。', FALSE);
+
+-- --------------------------------------------
+-- 1-2. 店舗定休日 (store_regular_holidays)
+--
+-- weekday は 0=日曜 〜 6=土曜（PostgreSQL の EXTRACT(DOW) に合わせる）。
+-- 制服採寸は土日が繁忙のため、週末は定休日にしない。
+-- --------------------------------------------
+INSERT INTO store_regular_holidays (store_id, weekday)
+SELECT s.id, h.weekday
+FROM stores s
+JOIN (VALUES
+    ('S001', 3),   -- 渋谷店: 水曜
+    ('S002', 1),   -- 新宿店: 月曜
+    ('S003', 2),   -- 横浜店: 火曜
+    ('S004', 4),   -- 池袋店: 木曜
+    ('S005', 3),   -- 川崎店: 水曜
+    ('S006', 1)    -- 町田店: 月曜
+) AS h(store_code, weekday) ON h.store_code = s.store_code;
 
 -- ===========================================
 -- 2. 学校マスタ (schools)
@@ -266,83 +284,119 @@ INSERT INTO store_schools (store_id, school_id) VALUES
 -- ===========================================
 -- 7. スケジュールテーブル (schedules)
 -- ===========================================
--- 有効な全店舗について、営業時間から30分刻みの枠を生成する。
+-- 「店舗 × 日」で1行。時間枠は持たず、受付時間を slot_minutes で割って導出する。
 --
 --   期間       : 過去14日〜未来45日（過去分はスタッフ画面の実績確認用）
---   休業日     : 各店舗の定休日のみ（stores.regular_holiday）。
---                制服採寸は土日が繁忙のため週末も営業扱いにする。
---   昼休み     : 12:00〜13:00 は枠を作らない
---   受付可能数 : 店舗の capacity をそのまま使う
---
--- reserved_count は後段の予約データ投入後にまとめて再計算するため、
--- ここでは 0 のまま入れる。
+--   受付時間   : 未指定（＝店舗の営業時間に従う）
+--   休憩       : 12:00〜13:00
+--   同時予約数 : 店舗の capacity をそのまま使う
+--   定休日     : store_regular_holidays に当たる日は is_available = FALSE
 INSERT INTO schedules (
-    store_id, schedule_date, start_time, end_time, capacity, reserved_count,
-    is_available, created_by, updated_by, memo
+    store_id, schedule_date, capacity, slot_minutes,
+    break_start, break_end, is_available, created_by, updated_by, memo
 )
 SELECT
-    store.id,
-    ts::date,
-    ts::time,
-    (ts + INTERVAL '30 minutes')::time,
-    store.capacity,
-    0,
-    TRUE,
+    st.id,
+    d::date,
+    st.capacity,
+    30,
+    TIME '12:00',
+    TIME '13:00',
+    NOT EXISTS (
+        SELECT 1 FROM store_regular_holidays h
+        WHERE h.store_id = st.id AND h.weekday = EXTRACT(DOW FROM d)
+    ),
     1, 1,
     '自動生成'
-FROM (
-    SELECT
-        id,
-        capacity,
-        business_hours_start,
-        business_hours_end,
-        -- 定休日の曜日名を ISO の曜日番号（月=1 … 日=7）に変換する
-        CASE regular_holiday
-            WHEN '月曜日' THEN 1
-            WHEN '火曜日' THEN 2
-            WHEN '水曜日' THEN 3
-            WHEN '木曜日' THEN 4
-            WHEN '金曜日' THEN 5
-            WHEN '土曜日' THEN 6
-            WHEN '日曜日' THEN 7
-            ELSE 0
-        END AS holiday_dow
-    FROM stores
-    WHERE is_enabled AND deleted_at IS NULL
-) AS store
+FROM stores st
+CROSS JOIN generate_series(CURRENT_DATE - 14, CURRENT_DATE + 45, INTERVAL '1 day') AS d
+WHERE st.is_enabled AND st.deleted_at IS NULL;
+
+-- 臨時休業（1日まるごと受付停止）の確認用
+UPDATE schedules
+SET is_available = FALSE, memo = '臨時休業（棚卸し）'
+WHERE store_id = 1 AND schedule_date = CURRENT_DATE + 10;
+
+-- 同時予約数を日によって変えられることの確認用
+UPDATE schedules
+SET capacity = 6, memo = '採寸会のため増員'
+WHERE store_id = 2 AND schedule_date = CURRENT_DATE + 3;
+
+-- --------------------------------------------
+-- 7-1. 導出した予約枠のビュー (v_schedule_slots)
+--
+-- テストデータの中で「実在する枠」を何度も参照するため、
+-- 導出の考え方（APIの usecase/slots.py と同じ）をここにまとめる。
+-- 本番の判定はAPI側で行うので、このビューはテストデータ専用。
+-- --------------------------------------------
+-- 枠止めより先に定義するとビューが枠止めを見られないため、
+-- 枠止めを入れたあとに作る（下部で CREATE VIEW する）。
+
+-- ===========================================
+-- 7-2. 枠止め (schedule_blocks)
+-- ===========================================
+-- 予約以外の用途で時間を埋めるもの。ここに重なる枠は受付から外れる。
+INSERT INTO schedule_blocks (
+    store_id, block_date, start_time, end_time, title, memo, created_by, updated_by
+) VALUES
+(1, CURRENT_DATE + 1, '15:00', '16:00', '棚卸し', '在庫確認のため受付を止める', 1, 1),
+(2, CURRENT_DATE + 2, '10:00', '11:30', '社内研修', NULL, 1, 1),
+(4, CURRENT_DATE + 1, '17:00', '19:00', '学校説明会', '校内での出張採寸', 1, 1);
+
+CREATE VIEW v_schedule_slots AS
+SELECT
+    sch.store_id,
+    sch.schedule_date,
+    ts::time AS start_time,
+    (ts + (sch.slot_minutes || ' minutes')::interval)::time AS end_time,
+    sch.capacity
+FROM schedules sch
+JOIN stores st ON st.id = sch.store_id
 CROSS JOIN LATERAL generate_series(
-    (CURRENT_DATE - 14) + store.business_hours_start,
-    (CURRENT_DATE + 45) + store.business_hours_end - INTERVAL '30 minutes',
-    INTERVAL '30 minutes'
+    sch.schedule_date + COALESCE(sch.start_time, st.business_hours_start),
+    sch.schedule_date + COALESCE(sch.end_time, st.business_hours_end)
+        - (sch.slot_minutes || ' minutes')::interval,
+    (sch.slot_minutes || ' minutes')::interval
 ) AS ts
-WHERE
-    -- 営業時間内の枠だけを残す（generate_series は日をまたいで刻み続けるため）
-    ts::time >= store.business_hours_start
-    AND ts::time < store.business_hours_end
-    -- 定休日は休業（それ以外は土日も営業する）
-    AND EXTRACT(ISODOW FROM ts) <> store.holiday_dow
-    -- 昼休み
-    AND (ts::time < TIME '12:00' OR ts::time >= TIME '13:00')
-ON CONFLICT (store_id, schedule_date, start_time) DO NOTHING;
+WHERE sch.is_available
+  AND sch.deleted_at IS NULL
+  -- 休憩時間の枠は作らない
+  AND (
+      sch.break_start IS NULL
+      OR ts::time < sch.break_start
+      OR ts::time >= sch.break_end
+  )
+  -- 枠止めに重なる枠は作らない
+  AND NOT EXISTS (
+      SELECT 1 FROM schedule_blocks b
+      WHERE b.store_id = sch.store_id
+        AND b.block_date = sch.schedule_date
+        AND b.deleted_at IS NULL
+        AND ts::time < b.end_time
+        AND b.start_time < (ts + (sch.slot_minutes || ' minutes')::interval)::time
+  );
+
+COMMENT ON VIEW v_schedule_slots IS '導出した予約枠（テストデータ生成用）';
 
 -- ===========================================
 -- 8. 予約テーブル (reservations)
 -- ===========================================
--- 生成済みの枠から一定の規則で予約を作る。
--- 実在する枠にしか予約を作らないため、reserved_count と矛盾しない。
+-- 導出した枠から一定の規則で予約を作る。実在する枠にしか予約を作らない。
 --
 --   過去日 : completed（一部 cancelled）
 --   当日   : confirmed
 --   未来日 : confirmed（一部 pending）
 WITH slot AS (
     SELECT
-        s.store_id,
-        s.schedule_date,
-        s.start_time,
-        s.capacity,
-        ROW_NUMBER() OVER (ORDER BY s.store_id, s.schedule_date, s.start_time) AS rn
-    FROM schedules s
-    WHERE s.schedule_date BETWEEN CURRENT_DATE - 14 AND CURRENT_DATE + 21
+        v.store_id,
+        v.schedule_date,
+        v.start_time,
+        v.capacity,
+        ROW_NUMBER() OVER (
+            ORDER BY v.store_id, v.schedule_date, v.start_time
+        ) AS rn
+    FROM v_schedule_slots v
+    WHERE v.schedule_date BETWEEN CURRENT_DATE - 14 AND CURRENT_DATE + 21
 ),
 picked AS (
     SELECT
@@ -465,19 +519,16 @@ JOIN school_pool sp ON sp.store_id = g.store_id AND sp.k = g.idx % sp.total;
 -- --------------------------------------------
 WITH target AS (
     -- 店舗ごとの「未来で最初の、まだ誰も予約していない枠」
-    --
-    -- reserved_count はこの後の工程でまとめて再計算するため、
-    -- この時点ではすべて0で判定に使えない。実データの有無で判断する。
-    SELECT DISTINCT ON (s.store_id) s.store_id, s.schedule_date, s.start_time
-    FROM schedules s
-    WHERE s.schedule_date > CURRENT_DATE
+    SELECT DISTINCT ON (v.store_id) v.store_id, v.schedule_date, v.start_time
+    FROM v_schedule_slots v
+    WHERE v.schedule_date > CURRENT_DATE
       AND NOT EXISTS (
           SELECT 1 FROM reservations r
-          WHERE r.store_id = s.store_id
-            AND r.reservation_date = s.schedule_date
-            AND r.reservation_time = s.start_time
+          WHERE r.store_id = v.store_id
+            AND r.reservation_date = v.schedule_date
+            AND r.reservation_time = v.start_time
       )
-    ORDER BY s.store_id, s.schedule_date, s.start_time
+    ORDER BY v.store_id, v.schedule_date, v.start_time
 ),
 sample AS (
     SELECT * FROM (VALUES
@@ -562,16 +613,16 @@ SELECT
     160.00, 50.00, 24.0, '090-0000-0006', 'today@example.com', '本日 保護者',
     'confirmed', 'ダッシュボードの当日件数確認用', 3, 3
 FROM (
-    SELECT s.store_id, s.schedule_date, s.start_time
-    FROM schedules s
-    WHERE s.schedule_date = CURRENT_DATE
+    SELECT v.store_id, v.schedule_date, v.start_time
+    FROM v_schedule_slots v
+    WHERE v.schedule_date = CURRENT_DATE
       AND NOT EXISTS (
           SELECT 1 FROM reservations r
-          WHERE r.store_id = s.store_id
-            AND r.reservation_date = s.schedule_date
-            AND r.reservation_time = s.start_time
+          WHERE r.store_id = v.store_id
+            AND r.reservation_date = v.schedule_date
+            AND r.reservation_time = v.start_time
       )
-    ORDER BY s.store_id, s.start_time
+    ORDER BY v.store_id, v.start_time
     LIMIT 1
 ) sc
 JOIN stores st ON st.id = sc.store_id;
@@ -580,46 +631,3 @@ JOIN stores st ON st.id = sc.store_id;
 UPDATE reservations
 SET deleted_at = CURRENT_TIMESTAMP
 WHERE reservation_number LIKE 'S005-%-9001';
-
--- ===========================================
--- 9. 予約済み件数の再計算
--- ===========================================
--- 予約データと schedules.reserved_count がずれていると、
--- 空き枠の表示と実際の予約件数が食い違ってしまう。
--- ここで実データから数え直して整合させる。
--- キャンセル・論理削除分は枠を専有しない（APIのキャンセル処理と同じ扱い）。
-UPDATE schedules s
-SET reserved_count = COALESCE((
-    SELECT COUNT(*)
-    FROM reservations r
-    WHERE r.store_id = s.store_id
-      AND r.reservation_date = s.schedule_date
-      AND r.reservation_time = s.start_time
-      AND r.status IN ('pending', 'confirmed', 'completed')
-      AND r.deleted_at IS NULL
-), 0);
-
--- 満席の枠は予約不可にする
-UPDATE schedules
-SET is_available = (reserved_count < capacity);
-
--- ===========================================
--- 10. 臨時休業（手動で枠を閉じた状態の確認用）
--- ===========================================
--- 渋谷店の「1週間後以降で最初の営業日」の午後を休業扱いにする。
--- 定休日や日曜に当たると対象が消えてしまうため、日付を直接指定せず
--- 実在する営業日から選ぶ。
-UPDATE schedules
-SET is_available = FALSE,
-    memo = '臨時休業（棚卸し）'
-WHERE store_id = 1
-  AND schedule_date = (
-      SELECT MIN(schedule_date) FROM schedules
-      WHERE store_id = 1 AND schedule_date >= CURRENT_DATE + 7
-  )
-  AND start_time >= TIME '13:00'
-  AND reserved_count = 0;
-
--- ===========================================
--- テストデータ投入完了
--- ===========================================

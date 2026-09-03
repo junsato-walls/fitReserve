@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""スケジュール（予約枠）のINSERT / UPDATE / DELETE"""
+"""スケジュール（店舗×日の受付設定）のINSERT / UPDATE / DELETE"""
 
 # サードパーティ
 from sqlalchemy.orm import Session
@@ -10,11 +10,20 @@ from system.clock import now
 
 
 def create(db: Session, values: dict) -> Schedules:
-    """予約枠を追加する"""
+    """1日分の受付設定を追加する"""
     schedule = Schedules(**values)
     db.add(schedule)
     db.flush()
     return schedule
+
+
+def create_many(db: Session, rows: list[dict]) -> int:
+    """複数日の受付設定をまとめて追加する（プロジェクト作成時の一括生成）"""
+    if not rows:
+        return 0
+
+    db.bulk_insert_mappings(Schedules, rows)
+    return len(rows)
 
 
 def update(db: Session, schedule: Schedules, values: dict) -> Schedules:
@@ -27,16 +36,4 @@ def update(db: Session, schedule: Schedules, values: dict) -> Schedules:
 def soft_delete(db: Session, schedule: Schedules) -> Schedules:
     """論理削除する"""
     schedule.deleted_at = now()
-    return schedule
-
-
-def increment_reserved(db: Session, schedule: Schedules) -> Schedules:
-    """予約済数を1増やす"""
-    schedule.reserved_count += 1
-    return schedule
-
-
-def decrement_reserved(db: Session, schedule: Schedules) -> Schedules:
-    """予約済数を1減らす（0未満にはしない）"""
-    schedule.reserved_count = max(0, schedule.reserved_count - 1)
     return schedule

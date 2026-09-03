@@ -12,10 +12,10 @@
 from model.companies import Companies
 from model.projects import Projects, ProjectSchoolDivisions, ProjectStores
 from model.reservations import Reservations
-from model.schedules import Schedules
+from model.schedules import ScheduleBlocks, Schedules
 from model.school_divisions import SchoolDivisions
 from model.schools import Schools
-from model.stores import Stores, StoreSchools
+from model.stores import StoreRegularHolidays, Stores, StoreSchools
 from model.users import Users, UserStores
 
 __all__ = [
@@ -24,9 +24,11 @@ __all__ = [
     "ProjectSchoolDivisions",
     "ProjectStores",
     "Reservations",
+    "ScheduleBlocks",
     "Schedules",
     "SchoolDivisions",
     "Schools",
+    "StoreRegularHolidays",
     "Stores",
     "StoreSchools",
     "Users",

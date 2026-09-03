@@ -1,11 +1,14 @@
 # -*- coding: utf-8 -*-
 """店舗マスタのスキーマ定義"""
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, model_validator
 from typing import List, Optional
 from datetime import datetime, time
 
 from schema.common import PaginationQuery
+
+# 曜日は PostgreSQL の EXTRACT(DOW) に合わせて 0=日曜 〜 6=土曜
+WEEKDAY_LABELS = ("日", "月", "火", "水", "木", "金", "土")
 
 
 class StoreBase(BaseModel):
@@ -18,13 +21,31 @@ class StoreBase(BaseModel):
     address: Optional[str] = Field(None, max_length=200, description="住所")
     phone: Optional[str] = Field(None, max_length=20, description="電話番号")
     email: Optional[str] = Field(None, max_length=100, description="メールアドレス")
-    capacity: int = Field(default=1, ge=1, description="同時対応可能人数")
-    business_hours_start: Optional[time] = Field(None, description="営業開始時間")
-    business_hours_end: Optional[time] = Field(None, description="営業終了時間")
-    regular_holiday: Optional[str] = Field(None, max_length=100, description="定休日")
+    capacity: int = Field(
+        default=1, ge=1, description="同時対応可能人数（日ごとの受付数の既定値）"
+    )
+    business_hours_start: time = Field(
+        ..., description="営業開始時間（予約枠の生成範囲）"
+    )
+    business_hours_end: time = Field(..., description="営業終了時間（予約枠の生成範囲）")
+    regular_holidays: List[int] = Field(
+        default_factory=list, description="定休日の曜日（0=日曜 〜 6=土曜）"
+    )
     description: Optional[str] = Field(None, max_length=500, description="店舗説明")
     image_url: Optional[str] = Field(None, max_length=500, description="店舗画像URL")
     is_enabled: bool = Field(default=True, description="有効フラグ")
+
+    @model_validator(mode="after")
+    def check_business_hours(self):
+        """営業時間の前後関係と定休日の値を見る
+
+        DBにも同じCHECK制約があるが、そこまで落とすと500になるため
+        入口の422で返す。
+        """
+        if self.business_hours_start >= self.business_hours_end:
+            raise ValueError("営業開始時間は営業終了時間より前である必要があります")
+        _assert_weekdays(self.regular_holidays)
+        return self
 
 
 class StoreCreate(StoreBase):
@@ -48,7 +69,7 @@ class StoreCreate(StoreBase):
                     "capacity": 5,
                     "business_hours_start": "09:00:00",
                     "business_hours_end": "18:00:00",
-                    "regular_holiday": "水曜日",
+                    "regular_holidays": [3],
                     "description": "東京エリアの本店です",
                     "is_enabled": True,
                 }
@@ -70,11 +91,26 @@ class StoreUpdate(BaseModel):
     capacity: Optional[int] = Field(None, ge=1)
     business_hours_start: Optional[time] = None
     business_hours_end: Optional[time] = None
-    regular_holiday: Optional[str] = Field(None, max_length=100)
+    regular_holidays: Optional[List[int]] = Field(
+        None, description="定休日の曜日（0=日曜 〜 6=土曜）。指定した内容で置き換える"
+    )
     description: Optional[str] = Field(None, max_length=500)
     school_ids: Optional[List[int]] = Field(
         None, description="取り扱う学校IDリスト（指定した内容で置き換える）"
     )
+
+    @model_validator(mode="after")
+    def check_business_hours(self):
+        """両方指定されたときだけ前後関係を見る（片方だけの更新もあるため）"""
+        if (
+            self.business_hours_start is not None
+            and self.business_hours_end is not None
+            and self.business_hours_start >= self.business_hours_end
+        ):
+            raise ValueError("営業開始時間は営業終了時間より前である必要があります")
+        if self.regular_holidays is not None:
+            _assert_weekdays(self.regular_holidays)
+        return self
 
     model_config = ConfigDict(
         json_schema_extra={
@@ -84,6 +120,7 @@ class StoreUpdate(BaseModel):
                     "capacity": 10,
                     "business_hours_start": "10:00:00",
                     "business_hours_end": "19:00:00",
+                    "regular_holidays": [3],
                 }
             ]
         }
@@ -115,9 +152,8 @@ class StorePublic(BaseModel):
     phone: str | None = None
     # モデル(Stores)の属性名と一致させること。異なる名前にすると
     # from_attributes による変換で値が取得できず、常にNoneになる
-    business_hours_start: time | None = None
-    business_hours_end: time | None = None
-    regular_holiday: str | None = None
+    business_hours_start: time
+    business_hours_end: time
     capacity: int
     image_url: str | None = None
     description: str | None = None
@@ -137,3 +173,11 @@ class StorePublicQuery(BaseModel):
     project_id: Optional[int] = Field(
         None, description="プロジェクトID（対象店舗のみ。未設定なら全店舗）"
     )
+
+
+def _assert_weekdays(weekdays: List[int]) -> None:
+    """定休日の曜日が 0〜6 の重複なしであること"""
+    if any(day < 0 or day > 6 for day in weekdays):
+        raise ValueError("定休日の曜日は0（日曜）から6（土曜）で指定してください")
+    if len(set(weekdays)) != len(weekdays):
+        raise ValueError("定休日の曜日が重複しています")

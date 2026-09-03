@@ -1,7 +1,7 @@
 # フロントエンド共通コンポーネント整理ルール
 
 **作成日**: 2026-08-19
-**最終更新**: 2026-08-21
+**最終更新**: 2026-09-02
 **関連**: [CODING_CONVENTIONS_FRONTEND.md](./CODING_CONVENTIONS_FRONTEND.md)
 
 > このドキュメントは**これから守るルール**を書く場所であり、作業ログは残さない。
@@ -44,7 +44,8 @@ src/
 
 ```
 base/
-├── buttons/    # Button, IconButton, LinkButton, CopyButton
+├── tokens.ts   # 色・大きさの共通語彙（Tone / Variant / Size）
+├── buttons/    # Button, IconButton, LinkButton, CopyButton, styles.ts（共通配色）
 ├── feedback/   # Alert, Toast, Spinner
 ├── forms/      # Input, Textarea, Select, Dropdown, Checkbox(+Group), Radio(+Group), Datepicker, FileInput, CommentBox
 ├── icons/      # ArrowLeft, ArrowRight, Delete, Download, Edit
@@ -55,7 +56,11 @@ base/
 
 ### 2-2. `layouts/`
 
-ページの骨組み（サイドバー・パンくずなど、画面を共通して囲む外枠）。実体は `StaffLayout`・`Sidebar`・`Breadcrumb`。
+ページの骨組み（ヘッダー・サイドバー・パンくずなど、画面を共通して囲む外枠）。
+入口は `StaffLayout` ひとつで、`Header`・`Sidebar`・`Breadcrumb`・`NavLinkGroup` はその内部部品。
+
+**外枠の一部をページ側で組み立てさせない。** ヘッダーをページごとに置く作りだった頃は、
+ヘッダーの無い画面（＝ログアウトもテーマ切替もできない画面）が生まれていた。
 
 **配置条件**: 2つ以上の `views/*` を共通して囲む枠かを自問する。枠でなければ `base/`、画面専用なら `views/<domain>/` に置く。
 
@@ -88,26 +93,48 @@ base/
 
 ### 4-1. 見た目の指定を画面側に書かせない
 
-生のカラークラス（`bg-yellow-100 text-yellow-800` 等）を props で受け取らない。
-代わりに**用途を表す語彙**を受け取り、実際の配色は `base/` 側が一元管理する。
+**`base/` の部品は `className` を受け取らない。** 生のカラークラスはもちろん、
+余白や幅も画面側に書かせない。必要な調整は**用途を表す props** として `base/` 側に足す。
 
 ```tsx
-// ❌ 画面ごとに微妙に違う黄色が生まれる
+// ❌ 画面ごとに微妙に違う黄色・違う余白が生まれる
 <Badge className="bg-yellow-100 text-yellow-800">予約受付</Badge>
+<Card className="max-w-2xl mx-auto">
 
-// ✅ 用途だけ指定する。配色は base/Badge が持つ
+// ✅ 用途・レイアウトを props で宣言する。実際の値は base/ が持つ
 <Badge tone="warning">予約受付</Badge>
+<Card maxWidth="2xl" center>
 ```
 
-バッジの用途語彙 `BadgeTone` は `base/display/Badge.tsx` が定義し、`base/display/Table.tsx`・`base/display/Timetable.tsx` もそれを参照する。
+`className` を通すと、画面ごとに表現がばらつくだけでなく、
+Tailwind の出力順によって上書きできたりできなかったりして**結果が読めない**。
+
+#### 語彙は `base/tokens.ts` に集約する
+
+| prop | 意味 | 値 |
+|---|---|---|
+| `tone` | 用途を表す**色** | `neutral` / `info` / `success` / `warning` / `danger` |
+| `variant` | **形**。色の意味は持たせない | `filled` / `outlined` / `soft` / `ghost` |
+| `size` | 大きさ | `sm` / `md` / `lg` |
 
 | tone | 用途 |
 |---|---|
 | `neutral` | 無効・キャンセル済みなど中立 |
-| `info` | 確定・進行中 |
+| `info` | 主要操作・確定・進行中（既定の青） |
 | `success` | 完了・正常 |
 | `warning` | 要対応・残りわずか |
-| `danger` | エラー・満席 |
+| `danger` | エラー・満席・取り消しなどの破壊的操作 |
+
+**同じ意味に別の名前を作らない。** かつては同じ「エラー」を表すのに
+`tone="danger"` / `variant="danger"` / `variant="error"` / `color="red"` の4通りがあった。
+
+ボタン系（Button / IconButton / CopyButton / LinkButton）と、
+Modal・Drawer・Banner のアクションボタンは配色を `base/buttons/styles.ts` で共有する。
+`tone` が同じなら、どこに置いても同じ色になる。
+
+例外として、幅の段階が必要な `Modal` / `Drawer` / `Avatar` の `size` と、
+影を持つ `Card` の `variant`（`elevated`）は独自の語彙を持つ。ただし**色は混ぜない**。
+
 
 ### 4-2. JSXを受け取る「逃げ道」を作らない
 
@@ -216,7 +243,10 @@ ARIAでは「**値を選ぶ**」Listboxパターンと「**操作を実行する
 | 4 | `react-pdf` が参照0件 | **完了**（2026-08-22: 帳票機能で使う想定が無いため依存ごと削除。空の `public/pdf/` も削除） |
 | 5 | `base/` の `next/image` 依存。Next.js以外への持ち出しを想定するなら要検討 | 認識のみ |
 | 6 | ダークモードの未実装・記述の偏り | **完了**（2026-08-22: 全部品に `dark:` を補完し、Cookie方式のテーマ切替と `/dev/components` カタログを実装） |
-| 7 | `Modal` は `open`/`onClose`、`Drawer` は `open`/`onOpenChange` とAPIが不統一 | 未着手 |
+| 7 | `Modal` は `open`/`onClose`、`Drawer` は `open`/`onOpenChange` とAPIが不統一 | **完了**（2026-09-02: `Modal` の `onClose` を廃止し `onOpenChange` に統一） |
+| 8 | `base/` が `className` を受け取り、見た目の指定が画面側に漏れていた | **完了**（2026-09-02: 全部品から `className`・`*ClassName` を削除し、`maxWidth` / `center` / `fullHeight` / `bordered` / `scrollable` / `scrollableBody` などのpropsに置き換え） |
+| 9 | 色の語彙が `tone` / `variant` / `color` / `type` に分裂していた | **完了**（2026-09-02: `tokens.ts` を新設し `tone` に一本化。`variant` は形のみ） |
+| 10 | 書式（クォート・セミコロン・インデント）が揃っていない | **完了**（2026-09-02: Prettier を導入し `src/` を一括整形） |
 
 ### 既知の制約（対応不要と判断したもの）
 
@@ -233,3 +263,4 @@ ARIAでは「**値を選ぶ**」Listboxパターンと「**操作を実行する
 | 2026-08-20 | `features/` の Dialog・AlertDialog・Select・Button・Table を `base/` へ移行 |
 | 2026-08-21 | `features/` の `ui/` 依存を全廃（card・input・label・alert・checkbox・textarea・calendar・button・dialog） |
 | 2026-08-21 | **`src/components/ui/`（shadcn/ui 33ファイル）を削除。** 併せて `@radix-ui/*` 19パッケージ・`react-day-picker`・`vaul`・`class-variance-authority` を削除し、`dependencies` は31個→11個になった |
+| 2026-09-02 | `base/tokens.ts` を新設して色・大きさの語彙を統一。`base/` から `className` を全廃し、クラス組み立てを `cn()` に統一。Prettier を導入。`Header` を `StaffLayout` に内蔵し、外枠の欠けを解消 |

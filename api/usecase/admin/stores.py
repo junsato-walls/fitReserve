@@ -43,10 +43,16 @@ def create_store(db: Session, payload: StoreCreate) -> StoreResponse:
             status_code=status.HTTP_400_BAD_REQUEST, detail=DUPLICATED_CODE
         )
 
-    store = stores_command.create(db, payload.model_dump(exclude={"school_ids"}))
+    store = stores_command.create(
+        db, payload.model_dump(exclude={"school_ids", "regular_holidays"})
+    )
 
     if payload.school_ids:
         stores_command.replace_school_ids(db, store.id, payload.school_ids)
+    if payload.regular_holidays:
+        stores_command.replace_regular_holidays(
+            db, store.id, payload.regular_holidays
+        )
 
     db.commit()
     db.refresh(store)
@@ -64,12 +70,20 @@ def update_store(db: Session, store_id: int, payload: StoreUpdate) -> StoreRespo
             )
 
     stores_command.update(
-        db, store, payload.model_dump(exclude_unset=True, exclude={"school_ids"})
+        db,
+        store,
+        payload.model_dump(
+            exclude_unset=True, exclude={"school_ids", "regular_holidays"}
+        ),
     )
 
-    # 取り扱い学校の更新（未指定なら変更しない）
+    # 取り扱い学校・定休日の更新（未指定なら変更しない）
     if payload.school_ids is not None:
         stores_command.replace_school_ids(db, store_id, payload.school_ids)
+    if payload.regular_holidays is not None:
+        stores_command.replace_regular_holidays(
+            db, store_id, payload.regular_holidays
+        )
 
     db.commit()
     db.refresh(store)
@@ -91,7 +105,8 @@ def _find(db: Session, store_id: int) -> Stores:
 
 
 def _to_response(db: Session, store: Stores) -> StoreResponse:
-    """店舗に取り扱い学校IDを添えてレスポンスを組み立てる"""
+    """店舗に取り扱い学校ID・定休日を添えてレスポンスを組み立てる"""
     values = StoreResponse.model_validate(store).model_dump()
     values["school_ids"] = stores_query.list_school_ids(db, store.id)
+    values["regular_holidays"] = stores_query.list_regular_holidays(db, store.id)
     return StoreResponse(**values)

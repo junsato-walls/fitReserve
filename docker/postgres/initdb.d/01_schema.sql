@@ -63,9 +63,8 @@ CREATE TABLE stores (
     phone VARCHAR(20),
     email VARCHAR(100),
     capacity INTEGER NOT NULL DEFAULT 1,
-    business_hours_start TIME,
-    business_hours_end TIME,
-    regular_holiday VARCHAR(100),
+    business_hours_start TIME NOT NULL DEFAULT '10:00',
+    business_hours_end TIME NOT NULL DEFAULT '19:00',
     description VARCHAR(500),
     image_url VARCHAR(500),
     is_enabled BOOLEAN NOT NULL DEFAULT TRUE,
@@ -73,6 +72,9 @@ CREATE TABLE stores (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+ALTER TABLE stores ADD CONSTRAINT chk_stores_business_hours
+    CHECK (business_hours_start < business_hours_end);
 
 CREATE INDEX idx_stores_code ON stores(store_code);
 CREATE INDEX idx_stores_enabled ON stores(is_enabled, deleted_at);
@@ -86,10 +88,9 @@ COMMENT ON COLUMN stores.postal_code IS '郵便番号';
 COMMENT ON COLUMN stores.address IS '住所';
 COMMENT ON COLUMN stores.phone IS '電話番号';
 COMMENT ON COLUMN stores.email IS 'メールアドレス';
-COMMENT ON COLUMN stores.capacity IS '同時対応可能人数';
-COMMENT ON COLUMN stores.business_hours_start IS '営業開始時間';
-COMMENT ON COLUMN stores.business_hours_end IS '営業終了時間';
-COMMENT ON COLUMN stores.regular_holiday IS '定休日';
+COMMENT ON COLUMN stores.capacity IS '同時対応可能人数（日ごとの受付数の既定値）';
+COMMENT ON COLUMN stores.business_hours_start IS '営業開始時間（予約枠の生成範囲）';
+COMMENT ON COLUMN stores.business_hours_end IS '営業終了時間（予約枠の生成範囲）';
 COMMENT ON COLUMN stores.description IS '店舗説明';
 COMMENT ON COLUMN stores.image_url IS '店舗画像URL';
 COMMENT ON COLUMN stores.is_enabled IS '有効フラグ';
@@ -118,6 +119,23 @@ COMMENT ON TABLE user_stores IS 'ユーザー担当店舗テーブル（権限�
 COMMENT ON COLUMN user_stores.user_id IS 'ユーザーID';
 COMMENT ON COLUMN user_stores.store_id IS '店舗ID';
 COMMENT ON COLUMN user_stores.created_at IS '作成日時';
+
+-- ===========================================
+-- 2-3. 店舗定休日テーブル (store_regular_holidays)
+-- ===========================================
+-- 定休日は「水曜日」のような自由文字列では判定できないため、曜日を行で持つ。
+-- weekday は PostgreSQL の EXTRACT(DOW) に合わせて 0=日曜 〜 6=土曜。
+-- 臨時休業（特定の日だけ休む）は schedules.is_available = FALSE で表す。
+CREATE TABLE store_regular_holidays (
+    store_id INTEGER NOT NULL,
+    weekday SMALLINT NOT NULL CHECK (weekday BETWEEN 0 AND 6),
+    PRIMARY KEY (store_id, weekday),
+    FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
+);
+
+COMMENT ON TABLE store_regular_holidays IS '店舗定休日テーブル（曜日指定）';
+COMMENT ON COLUMN store_regular_holidays.store_id IS '店舗ID';
+COMMENT ON COLUMN store_regular_holidays.weekday IS '曜日（0=日曜 〜 6=土曜）';
 
 -- ===========================================
 -- 3. 学校マスタ (schools)
@@ -347,14 +365,27 @@ COMMENT ON COLUMN reservations.updated_at IS '更新日時';
 -- ===========================================
 -- 8. スケジュールテーブル (schedules)
 -- ===========================================
+-- 「店舗 × 日」で1行。時間枠そのものは持たない。
+--
+-- 予約枠は次の順で導出する:
+--   1. 受付時間      = start_time / end_time（未設定なら店舗の営業時間）
+--   2. 刻み          = slot_minutes（プロジェクトの reservation_interval を写す）
+--   3. 休憩時間      = break_start 〜 break_end に重なる枠を除く（任意）
+--   4. 枠止め        = schedule_blocks に重なる枠を除く
+--   5. 受付停止・定休日は is_available = FALSE で1日まるごと除く
+--
+-- 枠ごとの予約件数は reservations を数える。件数を列に持つと、
+-- 予約の取り消しや枠の変更で実体とずれるため非正規化しない。
 CREATE TABLE schedules (
     id SERIAL PRIMARY KEY,
     store_id INTEGER NOT NULL,
     schedule_date DATE NOT NULL,
-    start_time TIME NOT NULL,
-    end_time TIME NOT NULL,
     capacity INTEGER NOT NULL DEFAULT 1,
-    reserved_count INTEGER NOT NULL DEFAULT 0,
+    slot_minutes INTEGER NOT NULL DEFAULT 30 CHECK (slot_minutes BETWEEN 5 AND 480),
+    start_time TIME,
+    end_time TIME,
+    break_start TIME,
+    break_end TIME,
     is_available BOOLEAN NOT NULL DEFAULT TRUE,
     memo VARCHAR(500),
     created_by INTEGER NOT NULL,
@@ -364,35 +395,89 @@ CREATE TABLE schedules (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (store_id) REFERENCES stores(id),
     FOREIGN KEY (created_by) REFERENCES users(id),
-    FOREIGN KEY (updated_by) REFERENCES users(id)
+    FOREIGN KEY (updated_by) REFERENCES users(id),
+    -- 受付時間は「両方未設定（＝店舗の営業時間に従う）」か「両方設定」のどちらか
+    CONSTRAINT chk_schedules_hours CHECK (
+        (start_time IS NULL AND end_time IS NULL)
+        OR (start_time IS NOT NULL AND end_time IS NOT NULL AND start_time < end_time)
+    ),
+    -- 休憩は任意。設定するなら開始と終了の両方を入れる
+    CONSTRAINT chk_schedules_break CHECK (
+        (break_start IS NULL AND break_end IS NULL)
+        OR (break_start IS NOT NULL AND break_end IS NOT NULL AND break_start < break_end)
+    )
 );
 
--- 同一店舗・同一日時の枠は1つだけ。
--- テーブル制約(UNIQUE)ではなく部分インデックスにするのは、論理削除した枠が
--- その日時を永久に塞いでしまうのを防ぐため（削除済みは重複判定に含めない）。
-CREATE UNIQUE INDEX idx_schedules_slot
-    ON schedules(store_id, schedule_date, start_time)
+-- 同一店舗・同一日の行は1つだけ。
+-- テーブル制約(UNIQUE)ではなく部分インデックスにするのは、論理削除した行が
+-- その日を永久に塞いでしまうのを防ぐため（削除済みは重複判定に含めない）。
+CREATE UNIQUE INDEX idx_schedules_day
+    ON schedules(store_id, schedule_date)
     WHERE deleted_at IS NULL;
 
 CREATE INDEX idx_schedules_date ON schedules(schedule_date, is_available);
-CREATE INDEX idx_schedules_availability ON schedules(store_id, schedule_date, is_available, deleted_at);
 CREATE INDEX idx_schedules_deleted ON schedules(deleted_at);
 
-COMMENT ON TABLE schedules IS 'スケジュールテーブル';
+COMMENT ON TABLE schedules IS 'スケジュールテーブル（店舗×日の受付設定）';
 COMMENT ON COLUMN schedules.id IS '主キー';
 COMMENT ON COLUMN schedules.store_id IS '店舗ID';
 COMMENT ON COLUMN schedules.schedule_date IS 'スケジュール日';
-COMMENT ON COLUMN schedules.start_time IS '開始時刻';
-COMMENT ON COLUMN schedules.end_time IS '終了時刻';
-COMMENT ON COLUMN schedules.capacity IS '予約可能枠数';
-COMMENT ON COLUMN schedules.reserved_count IS '予約済み件数';
-COMMENT ON COLUMN schedules.is_available IS '予約可能フラグ';
+COMMENT ON COLUMN schedules.capacity IS 'その日の同時予約数（1枠あたりの受付可能人数）';
+COMMENT ON COLUMN schedules.slot_minutes IS '予約枠の刻み（分）';
+COMMENT ON COLUMN schedules.start_time IS '受付開始時刻（NULLなら店舗の営業開始時間）';
+COMMENT ON COLUMN schedules.end_time IS '受付終了時刻（NULLなら店舗の営業終了時間）';
+COMMENT ON COLUMN schedules.break_start IS '休憩開始時刻（任意。この間は枠を作らない）';
+COMMENT ON COLUMN schedules.break_end IS '休憩終了時刻（任意）';
+COMMENT ON COLUMN schedules.is_available IS '予約可能フラグ（定休日・臨時休業はFALSE）';
 COMMENT ON COLUMN schedules.memo IS '備考';
 COMMENT ON COLUMN schedules.created_by IS '作成者（ユーザーID）';
 COMMENT ON COLUMN schedules.updated_by IS '更新者（ユーザーID）';
 COMMENT ON COLUMN schedules.deleted_at IS '論理削除日時';
 COMMENT ON COLUMN schedules.created_at IS '作成日時';
 COMMENT ON COLUMN schedules.updated_at IS '更新日時';
+
+-- ===========================================
+-- 8-2. 枠止めテーブル (schedule_blocks)
+-- ===========================================
+-- 予約以外の用途で時間を埋めるためのもの（休憩・棚卸し・研修・来客など）。
+-- ここに重なる予約枠は受付から外れる。
+-- 毎日決まった休憩は schedules.break_start / break_end のほうが手間が少ない。
+CREATE TABLE schedule_blocks (
+    id SERIAL PRIMARY KEY,
+    store_id INTEGER NOT NULL,
+    block_date DATE NOT NULL,
+    start_time TIME NOT NULL,
+    end_time TIME NOT NULL,
+    title VARCHAR(100) NOT NULL,
+    memo VARCHAR(500),
+    created_by INTEGER NOT NULL,
+    updated_by INTEGER NOT NULL,
+    deleted_at TIMESTAMP,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (store_id) REFERENCES stores(id),
+    FOREIGN KEY (created_by) REFERENCES users(id),
+    FOREIGN KEY (updated_by) REFERENCES users(id),
+    CONSTRAINT chk_schedule_blocks_time CHECK (start_time < end_time)
+);
+
+CREATE INDEX idx_schedule_blocks_store_date
+    ON schedule_blocks(store_id, block_date)
+    WHERE deleted_at IS NULL;
+
+COMMENT ON TABLE schedule_blocks IS '枠止めテーブル（予約以外で時間を埋める）';
+COMMENT ON COLUMN schedule_blocks.id IS '主キー';
+COMMENT ON COLUMN schedule_blocks.store_id IS '店舗ID';
+COMMENT ON COLUMN schedule_blocks.block_date IS '対象日';
+COMMENT ON COLUMN schedule_blocks.start_time IS '開始時刻';
+COMMENT ON COLUMN schedule_blocks.end_time IS '終了時刻';
+COMMENT ON COLUMN schedule_blocks.title IS '用件（昼休み・棚卸しなど）';
+COMMENT ON COLUMN schedule_blocks.memo IS '備考';
+COMMENT ON COLUMN schedule_blocks.created_by IS '作成者（ユーザーID）';
+COMMENT ON COLUMN schedule_blocks.updated_by IS '更新者（ユーザーID）';
+COMMENT ON COLUMN schedule_blocks.deleted_at IS '論理削除日時';
+COMMENT ON COLUMN schedule_blocks.created_at IS '作成日時';
+COMMENT ON COLUMN schedule_blocks.updated_at IS '更新日時';
 
 -- ===========================================
 -- 9. 会社マスタ (companies)

@@ -11,19 +11,18 @@ from sqlalchemy.orm import Session
 # ローカル
 from model import Reservations
 from repository.command import reservations as reservations_command
-from repository.command import schedules as schedules_command
 from repository.query import projects as projects_query
 from repository.query import reservations as reservations_query
-from repository.query import schedules as schedules_query
 from repository.query import schools as schools_query
 from repository.query import stores as stores_query
 from schema.reservations import ReservationCreate
+from usecase import slots as slots_logic
 
 
 def create_reservation(db: Session, payload: ReservationCreate) -> Reservations:
     """予約を登録する（顧客向け・認証不要）
 
-    枠の空き確認から予約済数の加算までを1つのトランザクションで行う。
+    枠の空き確認から予約の登録までを1つのトランザクションで行う。
     """
     store = stores_query.find_by_id(db, payload.store_id)
     if not store:
@@ -51,22 +50,11 @@ def create_reservation(db: Session, payload: ReservationCreate) -> Reservations:
             detail="この店舗では指定された学校の制服を取り扱っていません",
         )
 
-    # 同時予約によるオーバーブッキングを防ぐため、
-    # 空き確認からreserved_countの加算までを行ロックで直列化する
-    schedule = schedules_query.lock_open_slot(
-        db, payload.store_id, payload.reservation_date, payload.reservation_time
+    # 枠が予約できる状態かを確かめる。
+    # 行ロックを取るため、以降のINSERTまで同時実行は直列化される
+    slots_logic.take_slot(
+        db, store, payload.reservation_date, payload.reservation_time
     )
-    if not schedule:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="指定された日時の予約枠が見つかりません",
-        )
-
-    if schedule.reserved_count >= schedule.capacity:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="指定された日時は既に満席です",
-        )
 
     reservation = reservations_command.create(
         db,
@@ -76,7 +64,6 @@ def create_reservation(db: Session, payload: ReservationCreate) -> Reservations:
             "status": "pending",
         },
     )
-    schedules_command.increment_reserved(db, schedule)
 
     db.commit()
     db.refresh(reservation)

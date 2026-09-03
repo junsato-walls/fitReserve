@@ -2,14 +2,18 @@
 """予約のSELECT"""
 
 # 標準ライブラリ
-from datetime import date
+from datetime import date, time
 from typing import Optional
 
 # サードパーティ
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 # ローカル
 from model import Reservations
+
+# 枠を埋めない予約ステータス。取り消した予約は空きに戻す
+FREED_STATUSES = ("cancelled",)
 
 
 def find_by_id(db: Session, reservation_id: int) -> Optional[Reservations]:
@@ -80,5 +84,88 @@ def search(
         )
         .offset(skip)
         .limit(limit)
+        .all()
+    )
+
+
+def count_by_slot(
+    db: Session, store_ids: list[int], date_from: date, date_to: date
+) -> dict[tuple[int, date, time], int]:
+    """時間枠ごとの予約件数を (店舗, 日付, 時刻) をキーにして返す
+
+    予約件数はDBの列に持たず、ここで数える。列に持つと取り消しや
+    枠の変更で実体とずれるため。
+    タイムテーブルは店舗×日×枠の数だけ問い合わせるとN+1になるので、
+    期間分をまとめて1回で取る。
+    """
+    if not store_ids:
+        return {}
+
+    rows = (
+        db.query(
+            Reservations.store_id,
+            Reservations.reservation_date,
+            Reservations.reservation_time,
+            func.count(Reservations.id),
+        )
+        .filter(
+            Reservations.store_id.in_(store_ids),
+            Reservations.reservation_date >= date_from,
+            Reservations.reservation_date <= date_to,
+            Reservations.status.notin_(FREED_STATUSES),
+            Reservations.deleted_at.is_(None),
+        )
+        .group_by(
+            Reservations.store_id,
+            Reservations.reservation_date,
+            Reservations.reservation_time,
+        )
+        .all()
+    )
+
+    return {
+        (store_id, reservation_date, reservation_time): count
+        for store_id, reservation_date, reservation_time, count in rows
+    }
+
+
+def count_slot(
+    db: Session, store_id: int, reservation_date: date, reservation_time: time
+) -> int:
+    """1つの時間枠の予約件数を数える（空き確認に使う）"""
+    return (
+        db.query(func.count(Reservations.id))
+        .filter(
+            Reservations.store_id == store_id,
+            Reservations.reservation_date == reservation_date,
+            Reservations.reservation_time == reservation_time,
+            Reservations.status.notin_(FREED_STATUSES),
+            Reservations.deleted_at.is_(None),
+        )
+        .scalar()
+        or 0
+    )
+
+
+def list_range(
+    db: Session, store_ids: list[int], date_from: date, date_to: date
+) -> list[Reservations]:
+    """指定店舗・期間の予約をまとめて取得する（タイムテーブル用）
+
+    取り消した予約は枠を空けるため含めない。
+    """
+    if not store_ids:
+        return []
+
+    return (
+        db.query(Reservations)
+        .filter(
+            Reservations.store_id.in_(store_ids),
+            Reservations.reservation_date >= date_from,
+            Reservations.reservation_date <= date_to,
+            Reservations.status.notin_(FREED_STATUSES),
+            Reservations.deleted_at.is_(None),
+        )
+        .order_by(Reservations.reservation_date, Reservations.reservation_time)
         .all()
     )

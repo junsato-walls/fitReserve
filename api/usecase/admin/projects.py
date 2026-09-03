@@ -6,9 +6,13 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 # ローカル
+from datetime import timedelta
+
 from model import Projects
 from repository.command import projects as projects_command
+from repository.command import schedules as schedules_command
 from repository.query import projects as projects_query
+from repository.query import schedules as schedules_query
 from repository.query import stores as stores_query
 from schema.projects import (
     ProjectCreate,
@@ -17,10 +21,13 @@ from schema.projects import (
     ProjectUpdate,
     SchoolDivisionPeriod,
 )
-from system.clock import today
+from system.clock import to_dow, today
 
 NOT_FOUND = "プロジェクトが見つかりません"
 DUPLICATED_CODE = "このプロジェクトコードは既に使用されています"
+
+# 一度に生成できる日数の上限。誤入力で数年分を作ってしまうのを防ぐ
+MAX_GENERATED_DAYS = 400
 
 
 def list_projects(
@@ -49,7 +56,10 @@ def create_project(db: Session, payload: ProjectCreate) -> ProjectResponse:
         )
 
     project = projects_command.create(
-        db, payload.model_dump(exclude={"store_ids", "school_divisions"})
+        db,
+        payload.model_dump(
+            exclude={"store_ids", "school_divisions", "daily_capacity"}
+        ),
     )
 
     # 対象店舗・受付期間は指定がある場合のみ登録する
@@ -59,6 +69,9 @@ def create_project(db: Session, payload: ProjectCreate) -> ProjectResponse:
         projects_command.replace_division_periods(
             db, project.id, payload.school_divisions
         )
+
+    # 受付期間の各日に、その日の同時予約数を入れておく
+    _generate_schedules(db, project, payload)
 
     db.commit()
     db.refresh(project)
@@ -160,3 +173,57 @@ def _summarize_periods(
         "is_accepting": is_enabled
         and any(p.start_date <= current <= p.end_date for p in periods),
     }
+
+
+def _generate_schedules(db: Session, project: Projects, payload: ProjectCreate) -> None:
+    """受付期間内の各日に、店舗ごとの受付設定を作る
+
+    - 期間は学校区分ごとの受付期間をまとめた「最も早い開始日〜最も遅い終了日」
+    - 同時予約数は daily_capacity。未指定なら店舗の同時対応可能人数
+    - 定休日は is_available = False で作る（枠は出ないが、後から個別に開ける）
+    - 既に設定がある日は触らない（複数プロジェクトの期間が重なるため）
+    """
+    periods = payload.school_divisions or []
+    if not periods:
+        return
+
+    date_from = min(period.start_date for period in periods)
+    date_to = max(period.end_date for period in periods)
+    if (date_to - date_from).days + 1 > MAX_GENERATED_DAYS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"受付期間が長すぎます（最大{MAX_GENERATED_DAYS}日）",
+        )
+
+    stores = (
+        [stores_query.find_by_id(db, store_id) for store_id in payload.store_ids]
+        if payload.store_ids
+        else stores_query.list_enabled(db, None)
+    )
+
+    rows = []
+    for store in stores:
+        if store is None:
+            continue
+
+        holidays = set(stores_query.list_regular_holidays(db, store.id))
+        existing = schedules_query.list_existing_dates(db, store.id, date_from, date_to)
+
+        for offset in range((date_to - date_from).days + 1):
+            target = date_from + timedelta(days=offset)
+            if target in existing:
+                continue
+
+            rows.append(
+                {
+                    "store_id": store.id,
+                    "schedule_date": target,
+                    "capacity": payload.daily_capacity or store.capacity,
+                    "slot_minutes": project.reservation_interval,
+                    "is_available": to_dow(target) not in holidays,
+                    "created_by": payload.created_by,
+                    "updated_by": payload.updated_by,
+                }
+            )
+
+    schedules_command.create_many(db, rows)

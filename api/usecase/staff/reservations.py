@@ -11,10 +11,8 @@ from sqlalchemy.orm import Session
 # ローカル
 from model import Reservations
 from repository.command import reservations as reservations_command
-from repository.command import schedules as schedules_command
 from repository.query import projects as projects_query
 from repository.query import reservations as reservations_query
-from repository.query import schedules as schedules_query
 from repository.query import schools as schools_query
 from repository.query import stores as stores_query
 from schema.reservations import (
@@ -23,6 +21,7 @@ from schema.reservations import (
     ReservationWithDetails,
 )
 from system.permissions import Actor
+from usecase import slots as slots_logic
 
 # 権限外の予約は「存在しない」として扱う（IDの総当たりで存在を知られないため）
 NOT_FOUND = "予約が見つかりません"
@@ -91,16 +90,8 @@ def cancel_reservation(db: Session, actor: Actor, reservation_id: int) -> None:
             status_code=status.HTTP_400_BAD_REQUEST, detail="既にキャンセルされています"
         )
 
+    # 予約件数は reservations から数えるため、枠側の調整は要らない
     reservations_command.update(db, reservation, {"status": "cancelled"})
-
-    schedule = schedules_query.find_slot(
-        db,
-        reservation.store_id,
-        reservation.reservation_date,
-        reservation.reservation_time,
-    )
-    if schedule:
-        schedules_command.decrement_reserved(db, schedule)
 
     db.commit()
 
@@ -148,17 +139,11 @@ def _is_slot_changed(reservation: Reservations, payload: ReservationUpdate) -> b
 def _move_slot(
     db: Session, actor: Actor, reservation: Reservations, payload: ReservationUpdate
 ) -> None:
-    """予約枠を移動し、双方の予約済数を調整する"""
-    # 元のスケジュールの予約済数をデクリメント
-    old_schedule = schedules_query.find_slot(
-        db,
-        reservation.store_id,
-        reservation.reservation_date,
-        reservation.reservation_time,
-    )
-    if old_schedule:
-        schedules_command.decrement_reserved(db, old_schedule)
+    """予約枠を移動する
 
+    予約件数は reservations から数えるため、移動元の調整は要らない。
+    移動先に空きがあるかだけを確かめる。
+    """
     new_date = payload.reservation_date or reservation.reservation_date
     new_time = payload.reservation_time or reservation.reservation_time
     new_store_id = payload.store_id or reservation.store_id
@@ -166,21 +151,15 @@ def _move_slot(
     # 担当外の店舗へは移せない
     actor.assert_store(new_store_id, "変更先の予約枠が見つかりません")
 
-    # 変更先の枠は同時予約と競合しうるため行ロックを取得する
-    new_schedule = schedules_query.lock_open_slot(db, new_store_id, new_date, new_time)
-    if not new_schedule:
+    store = stores_query.find_by_id(db, new_store_id)
+    if not store:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="変更先の予約枠が見つかりません",
         )
 
-    if new_schedule.reserved_count >= new_schedule.capacity:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="変更先の予約枠は既に満席です",
-        )
-
-    schedules_command.increment_reserved(db, new_schedule)
+    # 変更先の枠は同時予約と競合しうるため、行ロックを取って確かめる
+    slots_logic.take_slot(db, store, new_date, new_time)
 
 
 def _with_details(

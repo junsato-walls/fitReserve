@@ -109,7 +109,7 @@ http://localhost:8000/docs
   "capacity": 5,
   "business_hours_start": "09:00:00",
   "business_hours_end": "18:00:00",
-  "regular_holiday": "水曜日",
+  "regular_holidays": [3],
   "description": "東京エリアの本店です",
   "is_enabled": true,
   "school_ids": [1, 2]
@@ -186,25 +186,55 @@ http://localhost:8000/docs
 - `store_id` は所属店舗で、画面表示に使うだけです
 - `role` に `admin` / `super_admin` を指定できるのは **super_admin のみ**（admin が実行すると403）
 
-### スケジュール登録（staff以上）
+### スケジュール（店舗×日の受付設定）
 
-**POST /schedules**
+**予約枠は行として存在しません。** 店舗の営業時間を `slot_minutes` で割って
+その場で組み立てます。休憩・枠止め・定休日に重なる枠は外れます。
+
+**POST /schedules** — 1日分の受付設定を作る
 
 ```json
 {
   "store_id": 1,
   "schedule_date": "2026-03-15",
-  "start_time": "10:00:00",
-  "end_time": "10:30:00",
   "capacity": 3,
+  "slot_minutes": 30,
+  "break_start": "12:00:00",
+  "break_end": "13:00:00",
   "is_available": true,
-  "memo": "午前の枠",
   "created_by": 1,
   "updated_by": 1
 }
 ```
 
+`start_time` / `end_time` を省略すると店舗の営業時間に従います。
 担当外の店舗を指定すると404になります。
+
+通常、この行は**プロジェクト作成時に受付期間の全日ぶん自動で作られる**ため、
+手で作ることはほとんどありません。後から日ごとに変えるときは PUT を使います。
+
+**GET /schedules/days?date_from=2026-03-15** — タイムテーブル
+
+店舗×日ごとに、導出した予約枠・枠止め・空き数まで組み立てて返します。
+画面側で営業時間から枠を計算しないでください（APIと二重管理になります）。
+
+### 枠止め（staff以上）
+
+**POST /schedule-blocks** — 予約以外の用途で時間を埋める
+
+```json
+{
+  "store_id": 1,
+  "block_date": "2026-03-15",
+  "start_time": "15:00:00",
+  "end_time": "16:00:00",
+  "title": "棚卸し",
+  "created_by": 1,
+  "updated_by": 1
+}
+```
+
+予約が入っている時間には作れません（400）。
 
 ### 予約登録（認証不要・顧客向け）
 
@@ -232,7 +262,9 @@ http://localhost:8000/docs
 ```
 
 登録には次の条件をすべて満たす必要があります。
-- 指定日時に空きのある `schedules` のレコードがある
+- 指定日時が、その日の受付設定から導出される予約枠に一致する
+  （定休日・受付停止・休憩・枠止めの時間は枠が存在しません）
+- その枠の予約件数が `schedules.capacity` に達していない
 - その店舗が指定学校の制服を取り扱っている（`store_schools`）
 - 指定学校の区分がプロジェクトの受付期間内（`project_school_divisions`）
 
@@ -261,12 +293,16 @@ http://localhost:8000/docs
 - `DELETE /reservations/{id}` - 予約キャンセル（staff以上）
 
 ### スケジュール管理（readonly以上・担当店舗のみ）
-- `GET /schedules` - スケジュール一覧
-- `GET /schedules/availability` - 空き状況確認
-- `GET /schedules/{id}` - スケジュール詳細
-- `POST /schedules` - スケジュール作成（staff以上）
-- `PUT /schedules/{id}` - スケジュール更新（staff以上）
-- `DELETE /schedules/{id}` - スケジュール削除（staff以上）
+- `GET /schedules` - 受付設定の一覧（店舗×日）
+- `GET /schedules/days` - タイムテーブル（枠・枠止め・空き数つき）
+- `GET /schedules/{id}` - 受付設定の詳細
+- `POST /schedules` - 受付設定の作成（staff以上）
+- `PUT /schedules/{id}` - 受付設定の更新（staff以上）
+- `DELETE /schedules/{id}` - 受付設定の削除（staff以上）
+- `GET /schedule-blocks` - 枠止め一覧
+- `POST /schedule-blocks` - 枠止め作成（staff以上）
+- `PUT /schedule-blocks/{id}` - 枠止め更新（staff以上）
+- `DELETE /schedule-blocks/{id}` - 枠止め削除（staff以上）
 
 ### マスタ管理（admin以上）
 - `GET /admin/companies` - 会社一覧（プロジェクトの所属会社の選択用）
@@ -291,7 +327,8 @@ http://localhost:8000/docs
 5. **学校登録** — `POST /admin/schools`
 6. **プロジェクト登録** — `POST /admin/projects`（`school_divisions` で区分ごとの受付期間を指定）
 7. **スタッフ登録** — `POST /admin/users`（`role: staff`, `store_ids` を指定）
-8. **スケジュール登録** — `POST /schedules` で予約枠を作成
+8. **プロジェクト作成** — `POST /admin/projects` に `daily_capacity` を渡すと
+   受付期間の全日ぶんの受付設定が自動で作られる
 9. **空き状況確認** — `GET /public/schedules`（顧客が見る画面と同じデータ）
 10. **予約登録** — `POST /public/reservations`
 11. **予約一覧確認** — 7で作ったスタッフでログインし直して `GET /reservations`。

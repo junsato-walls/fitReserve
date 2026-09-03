@@ -3,7 +3,23 @@
 Next.js (TypeScript/React) のコーディング規約
 
 **対象**: app/配下のTypeScript/Reactコード  
-**最終更新**: 2026-08-21
+**最終更新**: 2026-09-02
+
+---
+
+## ルールの置き場所
+
+同じルールを何箇所にも書くと必ずずれる。**話題ごとに正となる場所を1つに決める。**
+
+| 話題 | 正となるドキュメント |
+|---|---|
+| 言語・書式・命名・関数定義・スタイリング | **このファイル** |
+| `base/` のAPI設計、配置判断、アクセシビリティ基準 | [COMPONENT_ORGANIZATION.md](./COMPONENT_ORGANIZATION.md) |
+| 色・大きさの語彙の定義そのもの | `app/src/components/base/tokens.ts`（コードが正） |
+| 各ディレクトリに何を置くか | 各ディレクトリの `_README.md` |
+| 実装時に見る要点 | 各ディレクトリの `_RULES.md`（`api/`・`app/`） |
+
+`_README.md` には**その場所固有の事情**だけを書き、設計原則は上位ドキュメントへリンクする。
 
 ---
 
@@ -43,13 +59,37 @@ UIコンポーネントは**外部UIライブラリを使わず、`components/ba
 
 | ルール | 例 |
 |---|---|
-| **見た目の指定を画面側に書かせない。** 色は「用途」の語彙で受け取る | ❌ `<Badge className="bg-yellow-100">` → ✅ `<Badge tone="warning">` |
+| **`className` を受け取らない。** 見た目の指定を画面側に書かせない | ❌ `<Card className="max-w-2xl mx-auto">` → ✅ `<Card maxWidth="2xl" center>` |
+| **色は「用途」の語彙（`tone`）で受け取る** | ❌ `<Badge color="yellow">` → ✅ `<Badge tone="warning">` |
 | **JSXを受け取る逃げ道を作らない。** 値を渡す形に限定する | ❌ `<Button><Icon/>保存</Button>` → ✅ `<Button label="保存" leftIcon={<Save/>} />` |
 | **述語関数ではなく宣言的なpropsにする** | ❌ `disabled={(date)=>...}` → ✅ `availableDates={[...]}` |
 | **ラベルは部品に内蔵する。** `<Label>` は提供しない | ❌ `<Label>氏名</Label><Input/>` → ✅ `<Input label="氏名" required />` |
 
-ただし**機能不足で不自由にはしない。** 文言変換（`format`）・レイアウト指定（`width`/`align`/`size`）・
+### 共通の語彙（`components/base/tokens.ts`）
+
+部品ごとに色やサイズの言葉がばらつくと「同じ意味なのに名前が違う」状態になる。
+**語彙は `base/tokens.ts` にだけ定義し、部品はそれを参照する。**
+
+| prop | 意味 | 値 |
+|---|---|---|
+| `tone` | 用途を表す**色** | `neutral`（中立・無効）/ `info`（主要操作・進行中）/ `success` / `warning` / `danger` |
+| `variant` | **形**。色の意味は持たせない | `filled` / `outlined` / `soft` / `ghost` |
+| `size` | 大きさ | `sm` / `md` / `lg` |
+
+```tsx
+// ❌ 色と形が同じ prop に混ざり、部品ごとに名前も違う
+<Button variant="danger" />  <Alert type="error" />  <Spinner color="red" />
+
+// ✅ 色は tone、形は variant
+<Button tone="danger" />  <Alert tone="danger" />  <Spinner tone="danger" />
+```
+
+例外は幅の段階が必要な `Modal` / `Drawer` / `Avatar` の `size` と、
+影の有無を持つ `Card` の `variant`。いずれも**色は混ぜない**。
+
+ただし**機能不足で不自由にはしない。** 文言変換（`format`）・レイアウト指定（`width`/`align`/`size`/`maxWidth`/`fullWidth`）・
 行ごとの業務ルール（`disabled`）などは意図的に残している。
+**レイアウトも `className` ではなく専用の props で受け取る**（`maxWidth` / `center` / `fullHeight` / `scrollableBody` など）。
 
 **`base/` に無い機能が必要になったら、画面側で独自に組まず `base/` 側を拡張する。**
 
@@ -80,6 +120,7 @@ app/src/
 │   ├── base/          # 自作の基盤コンポーネント（★正式な基盤。他システムでも再利用）
 │   └── layouts/       # ページの骨組み（Sidebar, Breadcrumb などの外枠）
 ├── views/             # 画面（ページ本体のコンポーネント）
+│                       ページの実装は必ずここに置き、page.tsx は薄く保つ
 ├── api/               # Server Actions（FastAPIバックエンドとの通信層）
 ├── types/             # 型定義
 └── lib/               # ユーティリティ
@@ -96,13 +137,14 @@ app/src/
   （`text-X-600` → `dark:text-X-400`、`bg-X-700` → `dark:bg-X-600`、
   `focus:ring-X-300` → `dark:focus:ring-X-800`）
 - 見え方の確認は開発用カタログ `/dev/components` で行う（本番では404）
+- テーマ切替UI（`ThemeToggle`）は `UserMenu`（PC）と `MobileNavMenu`（スマホ）に置く。
+  どちらもヘッダー配下のため、社内画面ならどの幅でも到達できる
 - ページの地色は `body`（`--background`）に任せる。画面のルート要素に
   `bg-gray-50` などを直接指定しない（ダーク時に取り残される）
 - 濃いグレーの文字（`text-gray-900`）のダーク側は `dark:text-white` に揃える
 - `global-error.tsx` は `layout.tsx` を置き換えて描画されるため、
   `globals.css` の読み込みと `THEME_INIT_SCRIPT` を自前で持つ
-- テーマ切替UI（`ThemeToggle`）はサイドバー内にのみ置く。
-  ログイン・新規登録など未ログインの画面は切替UIを持たず、
+- ログイン画面など未ログインの画面は切替UIを持たず、
   Cookie未設定の既定値である `system`（OSの配色）に従う
 
 **方針**:
@@ -172,10 +214,47 @@ type UserRole = 'admin' | 'staff' | 'customer'
 
 ## スタイリング
 
-Tailwind CSS + cn()ユーティリティを使用
+Tailwind CSS + `cn()` ユーティリティを使用する。**クラスの組み立ては必ず `cn()` を通す。**
+テンプレートリテラルで連結すると、条件が偽のときに `false` や余分な空白が混ざり、
+`tailwind-merge` による重複解決も効かない。
 
 ```tsx
-import { cn } from '@/lib/utils'
+import { cn } from "@/lib/utils"
 
-className={cn('base-class', condition && 'conditional-class')}
+className={cn("base-class", condition && "conditional-class")}
 ```
+
+**クラス名を変数から組み立てない。** Tailwind はソースを文字列として走査するため、
+`z-${zIndex}` や `bg-${color}-500` のように動的に作ったクラスはCSSが生成されず、
+**エラーも出ないまま無効になる**。値を可変にしたい場合は次のどちらかにする。
+
+```tsx
+// ✅ 値そのものを変えたい → style で渡す
+<div style={{ zIndex }} />
+
+// ✅ 数種類から選ぶ → クラス名を丸ごと書いた表を引く
+const TONE = { danger: "bg-red-700", success: "bg-green-700" } as const
+<div className={cn(TONE[tone])} />
+```
+
+重なり順（z-index）の一覧は `app/src/components/base/tokens.ts` の `Z_INDEX` にある。
+
+## 書式（Prettier）
+
+書式は **Prettier に任せる**。設定は `app/.prettierrc.json`。
+
+| 項目 | 設定 |
+|---|---|
+| クォート | ダブル |
+| セミコロン | 付けない |
+| インデント | 4スペース |
+| 1行の長さ | 100 |
+| 末尾カンマ | あり |
+
+```bash
+bun run format         # 整形する
+bun run format:check   # 整形済みか確認する（CI向け）
+```
+
+ESLint は `eslint-config-prettier` を読み込み、書式に関するルールを無効化している。
+**書式は Prettier、コードの誤りは ESLint** と役割を分ける。

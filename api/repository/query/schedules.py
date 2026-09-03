@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-"""スケジュール（予約枠）のSELECT"""
+"""スケジュール（店舗×日の受付設定）のSELECT"""
 
 # 標準ライブラリ
-from datetime import date, time
+from datetime import date
 from typing import Optional
 
 # サードパーティ
@@ -21,33 +21,23 @@ def find_by_id(db: Session, schedule_id: int) -> Optional[Schedules]:
     )
 
 
-def find_slot(
-    db: Session,
-    store_id: int,
-    schedule_date: date,
-    start_time: time,
-    exclude_id: int = 0,
-) -> Optional[Schedules]:
-    """同一店舗・同一日時の枠を取得する（重複判定に使う）"""
+def find_day(db: Session, store_id: int, schedule_date: date) -> Optional[Schedules]:
+    """店舗×日の設定を1件取得する"""
     return (
         db.query(Schedules)
         .filter(
             Schedules.store_id == store_id,
             Schedules.schedule_date == schedule_date,
-            Schedules.start_time == start_time,
             Schedules.deleted_at.is_(None),
-            Schedules.id != exclude_id,
         )
         .first()
     )
 
 
-def lock_open_slot(
-    db: Session, store_id: int, schedule_date: date, start_time: time
-) -> Optional[Schedules]:
-    """予約可能な枠を行ロック付きで取得する
+def lock_day(db: Session, store_id: int, schedule_date: date) -> Optional[Schedules]:
+    """受付中の日を行ロック付きで取得する
 
-    空き確認から reserved_count の加算までを直列化し、
+    空き確認から予約の登録までを直列化し、
     同時予約によるオーバーブッキングを防ぐ。
     """
     return (
@@ -55,13 +45,55 @@ def lock_open_slot(
         .filter(
             Schedules.store_id == store_id,
             Schedules.schedule_date == schedule_date,
-            Schedules.start_time == start_time,
             Schedules.is_available.is_(True),
             Schedules.deleted_at.is_(None),
         )
         .with_for_update()
         .first()
     )
+
+
+def list_days(
+    db: Session,
+    store_ids: list[int],
+    date_from: date,
+    date_to: date,
+) -> list[Schedules]:
+    """指定店舗・期間の設定をまとめて取得する（タイムテーブル用）"""
+    if not store_ids:
+        return []
+
+    return (
+        db.query(Schedules)
+        .filter(
+            Schedules.store_id.in_(store_ids),
+            Schedules.schedule_date >= date_from,
+            Schedules.schedule_date <= date_to,
+            Schedules.deleted_at.is_(None),
+        )
+        .order_by(Schedules.schedule_date, Schedules.store_id)
+        .all()
+    )
+
+
+def list_existing_dates(
+    db: Session, store_id: int, date_from: date, date_to: date
+) -> set[date]:
+    """既に設定がある日を返す
+
+    プロジェクト作成時の一括生成で、既存の日を上書きしないために使う。
+    """
+    rows = (
+        db.query(Schedules.schedule_date)
+        .filter(
+            Schedules.store_id == store_id,
+            Schedules.schedule_date >= date_from,
+            Schedules.schedule_date <= date_to,
+            Schedules.deleted_at.is_(None),
+        )
+        .all()
+    )
+    return {row[0] for row in rows}
 
 
 def search(
@@ -92,30 +124,8 @@ def search(
         query = query.filter(Schedules.is_available == is_available)
 
     return (
-        query.order_by(Schedules.schedule_date, Schedules.start_time)
+        query.order_by(Schedules.schedule_date, Schedules.store_id)
         .offset(skip)
         .limit(limit)
         .all()
     )
-
-
-def list_open(
-    db: Session,
-    store_id: int,
-    date_from: date,
-    date_to: Optional[date] = None,
-) -> list[Schedules]:
-    """予約可能な枠を取得する（空き状況の表示に使う）"""
-    query = db.query(Schedules).filter(
-        Schedules.store_id == store_id,
-        Schedules.schedule_date >= date_from,
-        Schedules.is_available.is_(True),
-        Schedules.deleted_at.is_(None),
-    )
-
-    if date_to:
-        query = query.filter(Schedules.schedule_date <= date_to)
-    else:
-        query = query.filter(Schedules.schedule_date == date_from)
-
-    return query.order_by(Schedules.schedule_date, Schedules.start_time).all()

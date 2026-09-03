@@ -5,7 +5,7 @@
 from sqlalchemy.orm import Session
 
 # ローカル
-from model import Stores, StoreSchools
+from model import StoreRegularHolidays, Stores, StoreSchools
 from system.clock import now
 
 
@@ -38,3 +38,12 @@ def replace_school_ids(db: Session, store_id: int, school_ids: list[int]) -> Non
     db.query(StoreSchools).filter(StoreSchools.store_id == store_id).delete()
     for school_id in sorted(set(school_ids)):
         db.add(StoreSchools(store_id=store_id, school_id=school_id))
+
+
+def replace_regular_holidays(db: Session, store_id: int, weekdays: list[int]) -> None:
+    """定休日の曜日を指定された内容で置き換える"""
+    db.query(StoreRegularHolidays).filter(
+        StoreRegularHolidays.store_id == store_id
+    ).delete()
+    for weekday in sorted(set(weekdays)):
+        db.add(StoreRegularHolidays(store_id=store_id, weekday=weekday))

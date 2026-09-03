@@ -7,9 +7,10 @@
 
 from fastapi import APIRouter
 
-from router.staff import reservations, schedules
+from router.staff import reservations, schedule_blocks, schedules
 
 router = APIRouter()
 
 router.include_router(reservations.router, tags=["reservations"])
 router.include_router(schedules.router, tags=["schedules"])
+router.include_router(schedule_blocks.router, tags=["schedule-blocks"])
